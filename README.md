@@ -7,13 +7,13 @@ Agent-agnostic AI skills for [Dune](https://github.com/cognitedata/dune) apps. W
 Pull all skills into your Dune app:
 
 ```bash
-npx skills@latest add cognitedata/dune-skills
+npx @cognite/dune skills pull
 ```
 
-Or use the Dune CLI:
+Pull a specific skill:
 
 ```bash
-npx @cognite/dune skills pull
+npx @cognite/dune skills pull --skill create-client-tool
 ```
 
 ## Available Skills
