@@ -10,6 +10,12 @@ Pull all skills into your Dune app:
 npx @cognite/dune skills pull
 ```
 
+Pull a specific skill:
+
+```bash
+npx @cognite/dune skills pull --skill create-client-tool
+```
+
 ## Available Skills
 
 | Skill | Description |
