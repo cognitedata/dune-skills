@@ -1,6 +1,6 @@
 # Dune Skills
 
-Agent-agnostic AI skills for [Dune](https://github.com/cognitedata/dune) apps. Works with Claude Code, Cursor, Copilot, and any tool that supports [Vercel Skills](https://github.com/vercel-labs/skills).
+Agent-agnostic AI skills for [Dune](https://github.com/cognitedata/dune) apps. Works with Claude Code, Cursor, Copilot, and any agent that supports the [skills format](https://github.com/anthropics/skill-spec).
 
 ## Install
 
