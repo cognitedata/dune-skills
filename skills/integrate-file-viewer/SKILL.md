@@ -26,28 +26,11 @@ Read these files before touching anything:
 
 ## Step 2 — Install dependencies
 
-Install `react-pdf` and `pdfjs-dist`. They must be at matching versions — `react-pdf` declares the exact `pdfjs-dist` version it needs.
-
-Using the app's package manager, install `react-pdf` first, then pin `pdfjs-dist` to the version react-pdf expects:
+Install `react-pdf` using the app's package manager. `pdfjs-dist` is a regular dependency of `react-pdf` and installs automatically at the correct version — do not install it separately.
 
 ```bash
-# pnpm
-pnpm add react-pdf
-PDFJS_VERSION=$(cat node_modules/react-pdf/package.json | grep '"pdfjs-dist"' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-pnpm add pdfjs-dist@$PDFJS_VERSION
-
-# npm
-npm install react-pdf
-PDFJS_VERSION=$(cat node_modules/react-pdf/package.json | grep '"pdfjs-dist"' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-npm install pdfjs-dist@$PDFJS_VERSION
-
-# yarn
-yarn add react-pdf
-PDFJS_VERSION=$(cat node_modules/react-pdf/package.json | grep '"pdfjs-dist"' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-yarn add pdfjs-dist@$PDFJS_VERSION
+pnpm add react-pdf   # or: npm install react-pdf / yarn add react-pdf
 ```
-
-> **Why pin pdfjs-dist?** The API (loaded by react-pdf) and the Worker must be at identical versions. If they differ, you'll get a runtime error: `"The API version X does not match the Worker version Y"`.
 
 > **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally — do not set `pdfjs.GlobalWorkerOptions.workerSrc` yourself.
 
@@ -240,7 +223,6 @@ export default App;
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `"API version X does not match Worker version Y"` | `pdfjs-dist` installed at a different version than what `react-pdf` expects | Run `cat node_modules/react-pdf/package.json \| grep pdfjs-dist` and reinstall `pdfjs-dist` at that exact version |
 | Annotations never show | `instanceId` is `undefined` — viewer disables annotation query when it can't resolve an instance ID | Use `instanceId` source type instead of `internalId` when `file.instanceId` exists |
 | Annotations show but are empty | File has no `CogniteDiagramAnnotation` edges in CDF | Expected — only P&ID / diagram files synced to the data model have annotations |
 | Left-click drag pans (blocks annotation clicks) | Upstream component fires `onMouseDown` on any button | Should be middle-click only (`e.button !== 1` guard in `handleMouseDown`) — check the component version |
