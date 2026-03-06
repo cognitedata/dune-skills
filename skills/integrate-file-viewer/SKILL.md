@@ -28,11 +28,9 @@ Read these files before touching anything:
 
 Install the component library and its peer dependency `react-pdf`. `pdfjs-dist` is a regular dependency of `react-pdf` and installs automatically at the correct version — do not install it separately.
 
-```bash
-pnpm add @cognite/dune-industrial-components react-pdf
-# or: npm install @cognite/dune-industrial-components react-pdf
-# or: yarn add @cognite/dune-industrial-components react-pdf
-```
+- pnpm → `pnpm add "github:cognitedata/dune-industrial-components#semver:*" react-pdf`
+- npm  → `npm install "github:cognitedata/dune-industrial-components#semver:*" react-pdf`
+- yarn → `yarn add "github:cognitedata/dune-industrial-components#semver:*" react-pdf`
 
 > **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally — do not set `pdfjs.GlobalWorkerOptions.workerSrc` yourself.
 
