@@ -1,12 +1,12 @@
 ---
 name: integrate-file-viewer
-description: "MUST be used whenever integrating CogniteFileViewer into a Dune app to preview CDF files (PDFs, images, video, text). Do NOT manually wire up react-pdf or file resolution — this skill handles installation, Vite config, and component usage. Triggers: file viewer, file preview, CogniteFileViewer, PDF viewer, view CDF files, document viewer, preview file."
+description: "MUST be used whenever integrating CogniteFileViewer into a Dune app to preview CDF files (PDFs, images, text). Do NOT manually wire up react-pdf or file resolution — this skill handles installation, Vite config, worker setup, and component usage. Triggers: file viewer, file preview, CogniteFileViewer, PDF viewer, view CDF files, document viewer, preview file."
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash
 ---
 
 # Integrate CogniteFileViewer
 
-Add `CogniteFileViewer` to this Dune app to preview CDF files (PDF, image, video, text).
+Add `CogniteFileViewer` to this Dune app to preview CDF files (PDF, image, text).
 
 ## Your job
 
@@ -32,11 +32,28 @@ Read these files before touching anything:
 
 `pdfjs-dist` ships as a dependency of `react-pdf` at the correct version — do not install it separately.
 
-> **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally.
+---
+
+## Step 3 — Configure the PDF.js worker
+
+The consumer app must configure the PDF.js worker. This ensures the worker version matches the `pdfjs-dist` version shipped with your `react-pdf` install.
+
+Add this setup **in the same file** where `CogniteFileViewer` is used (module execution order matters):
+
+```tsx
+import { pdfjs } from 'react-pdf';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
+```
+
+> **pnpm users:** pnpm's strict linking may prevent the browser from resolving `pdfjs-dist`. Either add `pdfjs-dist` as a direct dependency (`pnpm add pdfjs-dist`), or add `public-hoist-pattern[]=pdfjs-dist` to `.npmrc`.
 
 ---
 
-## Step 3 — Configure Vite
+## Step 4 — Configure Vite
 
 Add `optimizeDeps.exclude: ['pdfjs-dist']` to `vite.config.ts` to prevent Vite from pre-bundling pdfjs-dist (which breaks the worker):
 
@@ -51,7 +68,7 @@ export default defineConfig({
 
 ---
 
-## Step 4 — Use the component
+## Step 5 — Use the component
 
 Import and render `CogniteFileViewer` wherever a file preview is needed.
 
@@ -78,7 +95,7 @@ const { sdk } = useDune();
 
 ### Minimal usage
 
-This is all you need — zoom, pan, and worker setup are handled internally:
+This is all you need — zoom, pan, and touch gestures are handled internally:
 
 ```tsx
 <CogniteFileViewer
@@ -136,11 +153,16 @@ source={
   onPageChange={setPage}
   onDocumentLoad={({ numPages }) => setNumPages(numPages)}
 
-  // Zoom & pan
-  zoom={zoom}               // 1 = 100%; Ctrl/Cmd+wheel and middle-click drag built in
+  // Zoom & pan (works on PDF and images)
+  zoom={zoom}               // 1 = 100%; Ctrl/Cmd+wheel, pinch-to-zoom, and middle-click drag built in
   onZoomChange={setZoom}
   minZoom={0.25}            // default
   maxZoom={5}               // default
+  panOffset={pan}           // controlled pan offset; resets on page change
+  onPanChange={setPan}
+
+  // Fit mode
+  fitMode="width"           // 'width' fits to container width; 'page' fits entire page in container
 
   // Rotation (PDFs and images)
   rotation={rotation}       // 0 | 90 | 180 | 270
@@ -149,6 +171,31 @@ source={
   showAnnotations={true}    // default
   onAnnotationClick={(annotation) => { /* annotation.linkedResource has space + externalId */ }}
   onAnnotationHover={(annotation) => {}}
+
+  // Custom annotation tooltip (replaces native <title> tooltip)
+  renderAnnotationTooltip={(annotation, rect) => (
+    <div style={{
+      position: 'absolute',
+      left: rect.x + rect.width,
+      top: rect.y,
+      zIndex: 11,
+    }}>
+      {annotation.text}
+    </div>
+  )}
+
+  // Custom overlay (SVG paths, highlights, drawings — works on PDF and images)
+  renderOverlay={({ width, height, originalWidth, originalHeight, pageNumber, rotation }) => (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${originalWidth} ${originalHeight}`}
+      preserveAspectRatio="none"
+      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'all' }}
+    >
+      <path d="..." stroke="cyan" fill="none" />
+    </svg>
+  )}
 
   // Custom renderers (all optional)
   renderLoading={() => <MySpinner />}
@@ -204,9 +251,13 @@ onAnnotationClick={(annotation) => {
 }}
 ```
 
-**Pan is middle-click drag** (when zoomed in). No configuration needed — it's built into the component. Left-click remains free for annotation clicks and text selection.
+**Touch support is built in.** Two-finger pinch-to-zoom and two-finger drag-to-pan work on touch devices automatically. No configuration needed.
+
+**Pan is middle-click drag** (when zoomed in) on desktop. Left-click remains free for annotation clicks and text selection.
 
 **Ctrl/Cmd + wheel zooms toward the cursor** — also built in. Wire `zoom`/`onZoomChange` if you want programmatic zoom buttons or to persist zoom state; otherwise it works fully uncontrolled.
+
+**`renderOverlay` receives original page dimensions** (`originalWidth`, `originalHeight`) so you can set up an SVG `viewBox` in the original coordinate space. Paths drawn in PDF-point or image-pixel coordinates will map correctly to the rendered page at any zoom level.
 
 ---
 
@@ -214,6 +265,8 @@ onAnnotationClick={(annotation) => {
 
 | Problem | Cause | Fix |
 |---|---|---|
+| `Failed to resolve module specifier 'pdf.worker.mjs'` | Worker not configured | Add the worker setup from Step 3 in the same file that uses `CogniteFileViewer` |
+| `API version does not match Worker version` | `pdfjs-dist` version mismatch between app and `react-pdf` | Do not install `pdfjs-dist` separately — let `react-pdf` provide it. If already installed, remove it |
 | Annotations never show | `instanceId` is `undefined` — annotation overlay is disabled without it | Use `instanceId` source, or fall back and accept no annotations for classic files |
 | Annotations show but are empty | File has no `CogniteDiagramAnnotation` edges in CDF | Expected — only P&ID/diagram files synced to the data model have annotations |
-| Left-click drag pans (blocks annotation clicks) | `handleMouseDown` not guarded by button check | Should be middle-click only — check the component version |
+| Viewer collapses to zero height | Parent has no explicit height | Set `height` via `style`, `className`, or parent CSS |
