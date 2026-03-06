@@ -26,10 +26,12 @@ Read these files before touching anything:
 
 ## Step 2 — Install dependencies
 
-Install `react-pdf` using the app's package manager. `pdfjs-dist` is a regular dependency of `react-pdf` and installs automatically at the correct version — do not install it separately.
+Install the component library and its peer dependency `react-pdf`. `pdfjs-dist` is a regular dependency of `react-pdf` and installs automatically at the correct version — do not install it separately.
 
 ```bash
-pnpm add react-pdf   # or: npm install react-pdf / yarn add react-pdf
+pnpm add @cognite/dune-industrial-components react-pdf
+# or: npm install @cognite/dune-industrial-components react-pdf
+# or: yarn add @cognite/dune-industrial-components react-pdf
 ```
 
 > **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally — do not set `pdfjs.GlobalWorkerOptions.workerSrc` yourself.
