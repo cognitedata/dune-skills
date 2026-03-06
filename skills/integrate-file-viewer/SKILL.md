@@ -70,10 +70,10 @@ const { sdk } = useDune();
 
 | Type | Formats |
 |---|---|
-| PDF | `.pdf` — with page navigation, zoom, pan, annotation overlay |
-| Image | JPEG, PNG, GIF, WebP, SVG — with zoom, pan, rotation |
-| Video | MP4, WebM — native browser player |
-| Text | Plain text, JSON, XML, CSV — rendered as preformatted text |
+| PDF | `.pdf` — page navigation, zoom, pan, diagram annotation overlay |
+| Office documents | Word, PowerPoint, Excel, ODS, ODP, ODT, RTF, TSV — converted to PDF via the CDF Document Preview API, then rendered identically to PDF |
+| Image | JPEG, PNG, WebP, SVG, TIFF — zoom, pan, rotation |
+| Text | `.txt`, `.csv`, `.json` — rendered as preformatted text |
 | Other | Falls back to `renderUnsupported` |
 
 ### Minimal usage
