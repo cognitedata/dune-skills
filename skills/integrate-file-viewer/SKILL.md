@@ -127,6 +127,53 @@ source={
 
 ---
 
+## Tips & tricks
+
+**Reset page, zoom and rotation when the source changes.**
+The component does not reset these automatically when you switch files — do it yourself:
+
+```ts
+const navigateToFile = (file: FileInfo) => {
+  setSelectedFile(file);
+  setPage(1);
+  setZoom(1);
+  setRotation(0);
+};
+```
+
+**Gate pagination UI on `numPages > 0`.**
+`onDocumentLoad` only fires for PDFs. Don't render pagination controls until you know there are pages to paginate:
+
+```tsx
+{numPages > 0 && (
+  <>
+    <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
+    <span>{page} / {numPages}</span>
+    <button disabled={page >= numPages} onClick={() => setPage(p => p + 1)}>›</button>
+  </>
+)}
+```
+
+**Annotation click → navigate to linked file.**
+`annotation.linkedResource` contains the `space` and `externalId` of the linked CDF instance. Match it against `file.instanceId` to navigate:
+
+```ts
+onAnnotationClick={(annotation) => {
+  if (!annotation.linkedResource) return;
+  const { space, externalId } = annotation.linkedResource;
+  const linked = files.find(
+    f => f.instanceId?.space === space && f.instanceId?.externalId === externalId
+  );
+  if (linked) navigateToFile(linked);
+}}
+```
+
+**Pan is middle-click drag** (when zoomed in). No configuration needed — it's built into the component. Left-click remains free for annotation clicks and text selection.
+
+**Ctrl/Cmd + wheel zooms toward the cursor** — also built in. Wire `zoom`/`onZoomChange` if you want programmatic zoom buttons or to persist zoom state; otherwise it works fully uncontrolled.
+
+---
+
 ## Common pitfalls
 
 | Problem | Cause | Fix |
