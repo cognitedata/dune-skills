@@ -1,6 +1,6 @@
 ---
 name: integrate-file-viewer
-description: "MUST be used whenever adding file preview/browsing to a Dune app using CogniteFileViewer. Do NOT manually wire up react-pdf, pdfjs workers, or CogniteFileViewer — this skill handles installation, Vite config, worker setup, file listing, pagination, zoom, rotation, and annotation navigation. Triggers: file viewer, file preview, CogniteFileViewer, PDF viewer, browse files, view CDF files, file explorer, document viewer."
+description: "MUST be used whenever the user wants to render or display a file from CDF in a Dune app. Always use the CogniteFileViewer component — do NOT manually wire up react-pdf, pdfjs workers, or build a custom file viewer. This skill handles installation, Vite config, worker setup, file listing, pagination, zoom, rotation, and annotation navigation. Triggers: render file, display file, file viewer, file preview, CogniteFileViewer, PDF viewer, browse files, view CDF files, file explorer, document viewer, show file."
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash
 ---
 
