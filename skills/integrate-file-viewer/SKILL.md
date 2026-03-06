@@ -59,6 +59,37 @@ Import and render `CogniteFileViewer` wherever a file preview is needed.
 import { CogniteFileViewer } from '@cognite/dune-industrial-components/file-viewer';
 ```
 
+Get the `sdk` from the `useDune()` hook (already available in every Dune app):
+
+```tsx
+import { useDune } from '@cognite/dune';
+const { sdk } = useDune();
+```
+
+### Supported file types
+
+| Type | Formats |
+|---|---|
+| PDF | `.pdf` — with page navigation, zoom, pan, annotation overlay |
+| Image | JPEG, PNG, GIF, WebP, SVG — with zoom, pan, rotation |
+| Video | MP4, WebM — native browser player |
+| Text | Plain text, JSON, XML, CSV — rendered as preformatted text |
+| Other | Falls back to `renderUnsupported` |
+
+### Minimal usage
+
+This is all you need — zoom, pan, and worker setup are handled internally:
+
+```tsx
+<CogniteFileViewer
+  source={{ type: 'internalId', id: file.id }}
+  client={sdk}
+  style={{ width: '100%', height: '600px' }}
+/>
+```
+
+> **The component needs a defined height.** If the parent has no explicit height, the viewer will collapse to zero. Always set a `height` via `style`, `className`, or the parent container.
+
 ### File source
 
 Pass any of three source types:
@@ -118,6 +149,11 @@ source={
   showAnnotations={true}    // default
   onAnnotationClick={(annotation) => { /* annotation.linkedResource has space + externalId */ }}
   onAnnotationHover={(annotation) => {}}
+
+  // Custom renderers (all optional)
+  renderLoading={() => <MySpinner />}
+  renderError={(error) => <MyError message={error.message} />}
+  renderUnsupported={(mimeType) => <div>Cannot preview {mimeType}</div>}
 
   // Layout
   className="..."
