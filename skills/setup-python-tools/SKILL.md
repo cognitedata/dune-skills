@@ -44,12 +44,12 @@ Read these files before touching anything:
 
 ## Step 2 — Install Pyodide
 
-Install **exactly** `pyodide@0.27.7` using the app's package manager.
+Install **exactly** `pyodide@0.29.3` using the app's package manager.
 This version must match the CDN artifacts loaded at runtime — installing a different version will cause errors.
 
-- pnpm → `pnpm add pyodide@0.27.7`
-- npm  → `npm install pyodide@0.27.7`
-- yarn → `yarn add pyodide@0.27.7`
+- pnpm → `pnpm add pyodide@0.29.3`
+- npm  → `npm install pyodide@0.29.3`
+- yarn → `yarn add pyodide@0.29.3`
 
 > **Note**: `@cognite/dune-industrial-components`, `@sinclair/typebox`, `ajv`, `ajv-formats` should
 > already be installed. If not, install them too (see the `integrate-atlas-chat` skill).
