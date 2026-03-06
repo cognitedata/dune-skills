@@ -1,12 +1,12 @@
 ---
 name: integrate-file-viewer
-description: "MUST be used whenever adding file preview/browsing to a Dune app using CogniteFileViewer. Do NOT manually wire up react-pdf or CogniteFileViewer — this skill handles installation, Vite config, file listing, pagination, zoom, rotation, and annotation navigation. Triggers: file viewer, file preview, CogniteFileViewer, PDF viewer, browse files, view CDF files, file explorer, document viewer."
+description: "MUST be used whenever integrating CogniteFileViewer into a Dune app to preview CDF files (PDFs, images, video, text). Do NOT manually wire up react-pdf or file resolution — this skill handles installation, Vite config, and component usage. Triggers: file viewer, file preview, CogniteFileViewer, PDF viewer, view CDF files, document viewer, preview file."
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash
 ---
 
 # Integrate CogniteFileViewer
 
-Add a file explorer with PDF/image/video/text preview to this Dune app using `CogniteFileViewer` from `@cognite/dune-industrial-components/file-viewer`.
+Add `CogniteFileViewer` to this Dune app to preview CDF files (PDF, image, video, text).
 
 ## Your job
 
@@ -20,28 +20,27 @@ Read these files before touching anything:
 
 - `package.json` — detect package manager (`packageManager` field or lock file) and existing deps
 - `vite.config.ts` — understand current Vite setup
-- `src/App.tsx` (or equivalent entry component) — understand current structure
+- The component where the viewer should be added
 
 ---
 
 ## Step 2 — Install dependencies
 
-Install the component library and its peer dependency `react-pdf`. `pdfjs-dist` is a regular dependency of `react-pdf` and installs automatically at the correct version — do not install it separately.
-
 - pnpm → `pnpm add "github:cognitedata/dune-industrial-components#semver:*" react-pdf`
 - npm  → `npm install "github:cognitedata/dune-industrial-components#semver:*" react-pdf`
 - yarn → `yarn add "github:cognitedata/dune-industrial-components#semver:*" react-pdf`
 
-> **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally — do not set `pdfjs.GlobalWorkerOptions.workerSrc` yourself.
+`pdfjs-dist` ships as a dependency of `react-pdf` at the correct version — do not install it separately.
+
+> **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally.
 
 ---
 
 ## Step 3 — Configure Vite
 
-Add `optimizeDeps.exclude: ['pdfjs-dist']` to `vite.config.ts`. This prevents Vite from pre-bundling pdfjs-dist, which would break the worker file path.
+Add `optimizeDeps.exclude: ['pdfjs-dist']` to `vite.config.ts` to prevent Vite from pre-bundling pdfjs-dist (which breaks the worker):
 
 ```ts
-// vite.config.ts
 export default defineConfig({
   // ... existing config ...
   optimizeDeps: {
@@ -52,169 +51,78 @@ export default defineConfig({
 
 ---
 
-## Step 4 — Build the file explorer UI
+## Step 4 — Use the component
 
-Replace (or update) the main `App.tsx` with a two-panel file explorer. The component must:
+Import and render `CogniteFileViewer` wherever a file preview is needed.
 
-1. **List files** using `sdk.files.list().autoPagingToArray({ limit: -1 })` via TanStack Query (already set up in Dune apps). `limit: -1` fetches all pages.
-2. **Import** `CogniteFileViewer` and `DocumentAnnotation` type from `@cognite/dune-industrial-components/file-viewer`.
-3. **Prefer `instanceId` source** — if `file.instanceId` exists on the `FileInfo` object, use `{ type: 'instanceId', space, externalId }`. Fall back to `{ type: 'internalId', id }`. This is critical for annotations: the viewer only enables the annotation overlay when it can resolve an `instanceId`.
-4. **Reset page, zoom, and rotation** to their defaults whenever the user selects a different file.
-5. **Pagination** — wire `page`, `onPageChange`, and `onDocumentLoad` for multi-page PDFs. Only show pagination controls once `numPages` is known (`numPages > 0`).
-6. **Zoom** — wire `zoom` and `onZoomChange`. Add `−`, `%` (click to reset), `+` buttons.
-7. **Rotation** — wire `rotation`. Add a `↻` button that cycles `0 → 90 → 180 → 270 → 0`.
-8. **Annotation navigation** — wire `onAnnotationClick`. When a diagram annotation is clicked, look up the linked file in the already-loaded list by matching `annotation.linkedResource` (`space` + `externalId`) against `file.instanceId`, then call `navigateToFile(linked)`.
-
-### Key component API
-
-```ts
+```tsx
 import { CogniteFileViewer } from '@cognite/dune-industrial-components/file-viewer';
-import type { DocumentAnnotation } from '@cognite/dune-industrial-components/file-viewer';
+```
 
+### File source
+
+Pass any of three source types:
+
+```tsx
+// By instance ID (data-modelled file — enables annotations)
 <CogniteFileViewer
-  // Source (prefer instanceId when available — required for annotations)
-  source={
-    file.instanceId
-      ? { type: 'instanceId', space: file.instanceId.space, externalId: file.instanceId.externalId }
-      : { type: 'internalId', id: file.id }
-  }
+  source={{ type: 'instanceId', space: 'my-space', externalId: 'my-file' }}
   client={sdk}
+/>
 
-  // Pagination (PDFs only)
-  page={page}                                         // 1-indexed, controlled
-  onPageChange={setPage}
-  onDocumentLoad={({ numPages }) => setNumPages(numPages)}
+// By CDF internal ID
+<CogniteFileViewer
+  source={{ type: 'internalId', id: 12345 }}
+  client={sdk}
+/>
 
-  // Zoom & pan (all file types)
-  zoom={zoom}                                         // 1 = 100%
-  onZoomChange={setZoom}
-  // Ctrl/Cmd+wheel and middle-click drag are built in
-
-  // Rotation (PDFs and images)
-  rotation={rotation}                                 // 0 | 90 | 180 | 270
-
-  // Annotation click → navigate to linked file
-  onAnnotationClick={handleAnnotationClick}
-
-  style={{ width: '100%', height: '100%' }}
+// By direct URL
+<CogniteFileViewer
+  source={{ type: 'url', url: 'https://...', mimeType: 'application/pdf' }}
 />
 ```
 
-### Annotation click handler pattern
-
-```ts
-const handleAnnotationClick = useCallback((annotation: DocumentAnnotation) => {
-  if (!annotation.linkedResource || !files) return;
-  const { space, externalId } = annotation.linkedResource;
-  const linked = files.find(
-    (f) => f.instanceId?.space === space && f.instanceId?.externalId === externalId,
-  );
-  if (linked) navigateToFile(linked);
-}, [files, navigateToFile]);
-```
-
-### Minimal skeleton
+**Prefer `instanceId` when available** — it's the only source type that enables the diagram annotation overlay. When listing files via `sdk.files.list()`, check `file.instanceId` first:
 
 ```tsx
-import { useDune } from '@cognite/dune';
-import { useQuery } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
-import { CogniteFileViewer } from '@cognite/dune-industrial-components/file-viewer';
-import type { DocumentAnnotation } from '@cognite/dune-industrial-components/file-viewer';
-import type { FileInfo } from '@cognite/sdk';
-
-function App() {
-  const { sdk, isLoading: sdkLoading } = useDune();
-  const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
-  const [page, setPage] = useState(1);
-  const [numPages, setNumPages] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
-
-  const { data: files, isLoading: filesLoading } = useQuery({
-    queryKey: ['cdf-files'],
-    queryFn: () => sdk.files.list().autoPagingToArray({ limit: -1 }),
-    enabled: !sdkLoading,
-  });
-
-  const navigateToFile = useCallback((file: FileInfo) => {
-    setSelectedFile(file);
-    setPage(1);
-    setNumPages(0);
-    setZoom(1);
-    setRotation(0);
-  }, []);
-
-  const handleAnnotationClick = useCallback((annotation: DocumentAnnotation) => {
-    if (!annotation.linkedResource || !files) return;
-    const { space, externalId } = annotation.linkedResource;
-    const linked = files.find(
-      (f) => f.instanceId?.space === space && f.instanceId?.externalId === externalId,
-    );
-    if (linked) navigateToFile(linked);
-  }, [files, navigateToFile]);
-
-  return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      {/* Sidebar — file list */}
-      <aside style={{ width: 280, overflowY: 'auto', borderRight: '1px solid #e5e7eb' }}>
-        {filesLoading && <div>Loading files…</div>}
-        {files?.map((file) => (
-          <button key={file.id} type="button" onClick={() => navigateToFile(file)}>
-            {file.name}
-          </button>
-        ))}
-      </aside>
-
-      {/* Main — toolbar + viewer */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {selectedFile && (
-          <>
-            {/* Toolbar */}
-            <div style={{ display: 'flex', gap: 8, padding: '8px 16px', borderBottom: '1px solid #e5e7eb' }}>
-              {/* Pagination */}
-              {numPages > 0 && (
-                <>
-                  <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹</button>
-                  <span>{page} / {numPages}</span>
-                  <button type="button" disabled={page >= numPages} onClick={() => setPage((p) => p + 1)}>›</button>
-                </>
-              )}
-              {/* Rotation */}
-              <button type="button" onClick={() => setRotation((r) => ((r + 90) % 360) as 0 | 90 | 180 | 270)}>↻</button>
-              {/* Zoom */}
-              <button type="button" onClick={() => setZoom((z) => Math.max(0.25, z * 0.8))}>−</button>
-              <button type="button" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
-              <button type="button" onClick={() => setZoom((z) => Math.min(5, z * 1.25))}>+</button>
-            </div>
-
-            {/* Viewer */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-              <CogniteFileViewer
-                source={
-                  selectedFile.instanceId
-                    ? { type: 'instanceId', space: selectedFile.instanceId.space, externalId: selectedFile.instanceId.externalId }
-                    : { type: 'internalId', id: selectedFile.id }
-                }
-                client={sdk}
-                page={page}
-                onPageChange={setPage}
-                onDocumentLoad={({ numPages: n }) => setNumPages(n)}
-                zoom={zoom}
-                onZoomChange={setZoom}
-                rotation={rotation}
-                onAnnotationClick={handleAnnotationClick}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </div>
-          </>
-        )}
-      </main>
-    </div>
-  );
+source={
+  file.instanceId
+    ? { type: 'instanceId', space: file.instanceId.space, externalId: file.instanceId.externalId }
+    : { type: 'internalId', id: file.id }
 }
+```
 
-export default App;
+### Full props reference
+
+```tsx
+<CogniteFileViewer
+  // Required
+  source={source}
+  client={sdk}              // required for instanceId and internalId sources
+
+  // PDF pagination
+  page={page}               // controlled current page (1-indexed)
+  onPageChange={setPage}
+  onDocumentLoad={({ numPages }) => setNumPages(numPages)}
+
+  // Zoom & pan
+  zoom={zoom}               // 1 = 100%; Ctrl/Cmd+wheel and middle-click drag built in
+  onZoomChange={setZoom}
+  minZoom={0.25}            // default
+  maxZoom={5}               // default
+
+  // Rotation (PDFs and images)
+  rotation={rotation}       // 0 | 90 | 180 | 270
+
+  // Diagram annotations (instanceId sources only)
+  showAnnotations={true}    // default
+  onAnnotationClick={(annotation) => { /* annotation.linkedResource has space + externalId */ }}
+  onAnnotationHover={(annotation) => {}}
+
+  // Layout
+  className="..."
+  style={{ width: '100%', height: '100%' }}
+/>
 ```
 
 ---
@@ -223,12 +131,6 @@ export default App;
 
 | Problem | Cause | Fix |
 |---|---|---|
-| Annotations never show | `instanceId` is `undefined` — viewer disables annotation query when it can't resolve an instance ID | Use `instanceId` source type instead of `internalId` when `file.instanceId` exists |
-| Annotations show but are empty | File has no `CogniteDiagramAnnotation` edges in CDF | Expected — only P&ID / diagram files synced to the data model have annotations |
-| Left-click drag pans (blocks annotation clicks) | Upstream component fires `onMouseDown` on any button | Should be middle-click only (`e.button !== 1` guard in `handleMouseDown`) — check the component version |
-
----
-
-## Done
-
-The app should now show a file list on the left and a live preview on the right with pagination, zoom, rotation, and annotation-click navigation.
+| Annotations never show | `instanceId` is `undefined` — annotation overlay is disabled without it | Use `instanceId` source, or fall back and accept no annotations for classic files |
+| Annotations show but are empty | File has no `CogniteDiagramAnnotation` edges in CDF | Expected — only P&ID/diagram files synced to the data model have annotations |
+| Left-click drag pans (blocks annotation clicks) | `handleMouseDown` not guarded by button check | Should be middle-click only — check the component version |
