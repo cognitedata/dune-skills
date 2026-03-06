@@ -1,6 +1,6 @@
 ---
 name: integrate-file-viewer
-description: "MUST be used whenever the user wants to render or display a file from CDF in a Dune app. Always use the CogniteFileViewer component — do NOT manually wire up react-pdf, pdfjs workers, or build a custom file viewer. This skill handles installation, Vite config, worker setup, file listing, pagination, zoom, rotation, and annotation navigation. Triggers: render file, display file, file viewer, file preview, CogniteFileViewer, PDF viewer, browse files, view CDF files, file explorer, document viewer, show file."
+description: "MUST be used whenever adding file preview/browsing to a Dune app using CogniteFileViewer. Do NOT manually wire up react-pdf or CogniteFileViewer — this skill handles installation, Vite config, file listing, pagination, zoom, rotation, and annotation navigation. Triggers: file viewer, file preview, CogniteFileViewer, PDF viewer, browse files, view CDF files, file explorer, document viewer."
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash
 ---
 
@@ -20,7 +20,6 @@ Read these files before touching anything:
 
 - `package.json` — detect package manager (`packageManager` field or lock file) and existing deps
 - `vite.config.ts` — understand current Vite setup
-- `src/main.tsx` — understand entry point
 - `src/App.tsx` (or equivalent entry component) — understand current structure
 
 ---
@@ -50,14 +49,13 @@ yarn add pdfjs-dist@$PDFJS_VERSION
 
 > **Why pin pdfjs-dist?** The API (loaded by react-pdf) and the Worker must be at identical versions. If they differ, you'll get a runtime error: `"The API version X does not match the Worker version Y"`.
 
+> **No manual worker setup needed.** `CogniteFileViewer` configures the PDF.js worker internally — do not set `pdfjs.GlobalWorkerOptions.workerSrc` yourself.
+
 ---
 
 ## Step 3 — Configure Vite
 
-Add to `vite.config.ts`:
-
-1. An alias for the file-viewer (if consuming from the local monorepo source) **or** skip the alias if using the published package.
-2. `optimizeDeps.exclude: ['pdfjs-dist']` — prevents Vite from pre-bundling pdfjs-dist, which would break the worker file path.
+Add `optimizeDeps.exclude: ['pdfjs-dist']` to `vite.config.ts`. This prevents Vite from pre-bundling pdfjs-dist, which would break the worker file path.
 
 ```ts
 // vite.config.ts
@@ -71,24 +69,7 @@ export default defineConfig({
 
 ---
 
-## Step 4 — Set up the PDF.js worker
-
-In `src/main.tsx`, import the worker using Vite's `?url` suffix (so Vite resolves the path through node_modules at build time) and set it **after** all other imports so it overrides any worker URL set by the library itself at module-init time.
-
-```ts
-// src/main.tsx
-import { pdfjs } from 'react-pdf';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-
-// ... rest of imports and ReactDOM.createRoot(...)
-```
-
-> **Why `?url` and why at the top?** `new URL('pdfjs-dist/...', import.meta.url)` is a plain URL concatenation — it does not go through node_modules resolution and produces a broken path. `?url` is Vite's mechanism to resolve a package file and return the correct served URL. Placing it before other imports ensures it runs last (ES module body order), overriding any worker URL set by library code during module initialisation.
-
----
-
-## Step 5 — Build the file explorer UI
+## Step 4 — Build the file explorer UI
 
 Replace (or update) the main `App.tsx` with a two-panel file explorer. The component must:
 
@@ -260,7 +241,6 @@ export default App;
 | Problem | Cause | Fix |
 |---|---|---|
 | `"API version X does not match Worker version Y"` | `pdfjs-dist` installed at a different version than what `react-pdf` expects | Run `cat node_modules/react-pdf/package.json \| grep pdfjs-dist` and reinstall `pdfjs-dist` at that exact version |
-| Worker URL resolves to `/src/pdfjs-dist/...` (404) | Using `new URL('pdfjs-dist/...', import.meta.url)` instead of `?url` | Use `import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'` |
 | Annotations never show | `instanceId` is `undefined` — viewer disables annotation query when it can't resolve an instance ID | Use `instanceId` source type instead of `internalId` when `file.instanceId` exists |
 | Annotations show but are empty | File has no `CogniteDiagramAnnotation` edges in CDF | Expected — only P&ID / diagram files synced to the data model have annotations |
 | Left-click drag pans (blocks annotation clicks) | Upstream component fires `onMouseDown` on any button | Should be middle-click only (`e.button !== 1` guard in `handleMouseDown`) — check the component version |
