@@ -59,7 +59,7 @@ The goal is zero `any` in `src/`. If a third-party library forces it, wrap the c
 List all `.tsx` files with their line counts:
 
 ```bash
-Get-ChildItem -Recurse -Filter "*.tsx" src | ForEach-Object { [PSCustomObject]@{ Lines = (Get-Content $_.FullName | Measure-Object -Line).Lines; Name = $_.FullName } } | Sort-Object Lines -Descending | Select-Object Lines, Name
+node -e "const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):p.endsWith('.tsx')?[p]:[]})}walk('src').map(p=>({p,l:fs.readFileSync(p,'utf8').split('\n').length})).sort((a,b)=>b.l-a.l).forEach(({l,p})=>console.log(l,p))"
 ```
 
 Flag every component file over **150 lines**. For each, read it and check:
@@ -135,20 +135,33 @@ Read a representative sample of files and verify:
 Search for common violations:
 
 ```bash
-# Components not in PascalCase files
-Get-ChildItem -Recurse -Filter "*.tsx" src | Where-Object { $_.Name -cmatch "^[a-z]" }
+# TSX components not in PascalCase (filename starts with lowercase)
+node -e "const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):p.endsWith('.tsx')?[p]:[]})}walk('src').filter(p=>/^[a-z]/.test(path.basename(p))).forEach(p=>console.log(p))"
 
 # Hook files not prefixed with "use"
-Get-ChildItem -Recurse -Filter "*.ts" src/hooks | Where-Object { $_.Name -notmatch "^use" }
+node -e "const fs=require('fs');fs.readdirSync('src/hooks').filter(f=>f.endsWith('.ts')&&!f.startsWith('use')).forEach(f=>console.log('src/hooks/'+f))"
 ```
 
 ---
 
 ## Step 7 — Remove dead code
 
-```bash
+```powershell
 # Find commented-out code blocks (3+ consecutive commented lines)
-grep -rn --include="*.tsx" --include="*.ts" -E "^\s*//" src/ | uniq -c | awk '$1 >= 3'
+Get-ChildItem -Recurse -Include "*.ts","*.tsx" src | ForEach-Object {
+    $file = $_; $lines = Get-Content $file.FullName
+    $count = 0; $startLine = 0
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\s*//') {
+            if ($count -eq 0) { $startLine = $i + 1 }
+            $count++
+        } else {
+            if ($count -ge 3) { "$($file.FullName):$startLine — $count consecutive comment lines" }
+            $count = 0
+        }
+    }
+    if ($count -ge 3) { "$($file.FullName):$startLine — $count consecutive comment lines" }
+}
 
 # Find console.log/debug statements
 grep -rn --include="*.tsx" --include="*.ts" -E "console\.(log|debug|warn|error|info)" src/
