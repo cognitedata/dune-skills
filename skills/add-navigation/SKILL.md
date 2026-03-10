@@ -20,7 +20,6 @@ The Navigation component is a pure, dependency-injected sticky header. It owns n
 - Logo content (swap by theme in the parent)
 - Optional right-side slot (`renderThemeToggle`)
 
-The component is sourced from the [Dune Library community components](https://github.com/cognitedata/dune-library/tree/master/community/components/navigation).
 
 ---
 
