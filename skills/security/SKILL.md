@@ -1,136 +1,272 @@
 ---
 name: security
-description: "MUST be used whenever reviewing a Dune app for security issues, or before shipping any feature that handles credentials, user input, or external data. Do NOT skip this when the user asks for a security review, security audit, or vulnerability check — run every step in order. Triggers: security, security review, security audit, vulnerability, XSS, injection, credentials, secrets, auth, authentication, authorization, token, sensitive data, input validation, CORS, CSP, dependency audit."
-allowed-tools: Read, Glob, Grep, Shell, Write
-metadata:
-  argument-hint: "[file or directory to audit, or leave blank to audit the whole app]"
+description: Audit a Dune app for security vulnerabilities including credential leaks, XSS, unsafe DOM APIs, missing auth guards, unvalidated input, and dependency CVEs. Use this skill whenever the user asks for a security review, vulnerability check, or security audit, or when they mention credentials, secrets, tokens, XSS, injection, auth issues, or CORS — even if they just say "is this safe to ship?"
 ---
 
 # Security Audit
 
-Perform a thorough security review of **$ARGUMENTS** (or the whole app if no argument is given). Work through every step below in order and report findings with file paths and line numbers.
+Perform a security review of **$ARGUMENTS** (or the whole app if no argument is
+given). Work through every section below and report findings with file paths and
+line numbers.
+
+## Why This Matters
+
+A single leaked credential or XSS vector can compromise an entire CDF project —
+every asset, timeseries, and data model the user has access to. Dune apps handle
+OIDC tokens and talk directly to CDF, so the blast radius of a security issue is
+the user's full set of CDF permissions. These issues are rarely caught by linters
+or tests, which is why a deliberate manual review matters.
 
 ---
 
-## Step 1 — Map the attack surface
+## Step 1 — Map the Attack Surface
 
-Read these files before checking anything:
+Read these files first to understand how data enters and leaves the app:
 
 - `src/main.tsx` / `src/App.tsx` — entry point, routing, auth gating
-- `vite.config.ts` — dev server proxy, CORS, headers
-- `package.json` — list of third-party dependencies
+- `vite.config.ts` — dev server proxy, environment variable exposure
+- `package.json` — third-party dependencies
 - Any file matching `**/auth*`, `**/login*`, `**/token*`, `**/credential*`
 
-Identify:
-- All pages/routes and whether each is behind an auth guard
-- All places where external data enters the app (CDF SDK calls, `fetch`, user form input)
-- All places where data is written back (CDF upsert, `fetch` POST/PUT/DELETE)
+For each, identify:
+
+| Surface | What to look for |
+|---------|-----------------|
+| Routes | Which are behind an auth guard, which are public |
+| Data inputs | CDF SDK calls, `fetch`, form inputs, URL params, localStorage |
+| Data outputs | CDF upsert, `fetch` POST/PUT/DELETE, third-party API calls |
+| Tokens & secrets | Where OIDC tokens are stored, how they're passed to CDF |
 
 ---
 
-## Step 2 — Credential & secret hygiene
+## Step 2 — Credential and Secret Hygiene
 
-Search for hard-coded credentials and sensitive values:
+Hard-coded credentials in source files are the highest-severity finding — they end
+up in the bundle, in version control, and potentially in any CDN cache. Even
+"temporary" test tokens leak.
 
 ```bash
-# Look for anything that smells like a secret in source files
-grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
-  -E "(password|secret|apikey|api_key|token|bearer|private_key)\s*=\s*['\"]" src/
+rg -n -i "(password|secret|apikey|api_key|token|bearer|private_key)\s*=\s*['\"]" --type ts src/
 ```
 
-Flag any match. Secrets must come from environment variables (`import.meta.env.VITE_*`) or from the Dune auth flow — never hard-coded.
+Evaluate each match in context — `tokenType = "Bearer"` is not a leak, but
+`apiKey = "sk-abc123..."` is. Real secrets should flow through the Dune OIDC auth
+flow and never appear in source code. Note that `import.meta.env.VITE_*` values
+are safe for non-secret configuration (project names, public endpoints) but are
+embedded directly in the client bundle — never use `VITE_` for actual secrets.
 
 Also verify:
-- `.env.example` does not contain real secrets (only placeholder values like `your-token-here`)
+
+- `.env.example` contains only placeholder values (e.g., `your-token-here`), not
+  real secrets
 - `.gitignore` lists `.env` and `.env.local`
-- No `console.log`, `console.error`, or similar calls that print a CDF token, user object, or API key
+- No `console.log` or `console.error` calls that print CDF tokens, user objects,
+  or API keys:
+
+```bash
+rg -n "console\.(log|error|warn|debug)" --type ts src/
+```
+
+For each hit, check whether the logged value could contain a token or credential.
+
+Also check for sensitive data stored client-side where it shouldn't be:
+
+```bash
+rg -n "localStorage\.(set|get)Item|sessionStorage\.(set|get)Item" --type ts src/
+```
+
+Tokens and credentials should never be stored in `localStorage` — they're
+accessible to any script running on the page, including XSS payloads.
 
 ---
 
 ## Step 3 — Dangerous DOM APIs
 
-Search for patterns that allow arbitrary script execution or HTML injection:
+These APIs allow arbitrary script execution or HTML injection. A single unguarded
+use can turn any user-supplied string into an XSS vector.
 
 ```bash
-grep -rn --include="*.tsx" --include="*.ts" \
-  -E "dangerouslySetInnerHTML|innerHTML\s*=|eval\(|new Function\(|setTimeout\(['\"]|setInterval\(['\"]" src/
+rg -n "dangerouslySetInnerHTML|innerHTML\s*=|eval\(|new Function\(|document\.write" --type ts src/
 ```
 
 For each hit:
-- `dangerouslySetInnerHTML`: confirm the value is sanitized with DOMPurify or equivalent before use. If not, flag as **HIGH**.
-- `eval` / `new Function`: flag as **HIGH** unconditionally — there is no safe use in a browser app.
-- `setTimeout`/`setInterval` with a string argument: flag as **MEDIUM** (equivalent to `eval`).
 
----
+| Pattern | Severity | Action |
+|---------|----------|--------|
+| `dangerouslySetInnerHTML` | HIGH unless sanitized | Verify the value passes through DOMPurify or equivalent before use |
+| `eval()` / `new Function()` | HIGH | Remove — there is no safe use of eval in a browser app |
+| `innerHTML =` | HIGH | Replace with React's JSX rendering or sanitize with DOMPurify |
+| `document.write` | MEDIUM | Replace with DOM manipulation or React rendering |
 
-## Step 4 — Authentication & authorization
-
-Read the auth setup (likely `src/contexts/`, `src/hooks/`, or `setup-dune-auth` output):
-
-- Every route that shows CDF data must be behind the Dune auth guard (`useCogniteClient` returns a non-null `sdk` before rendering).
-- The CDF client must be initialized with short-lived OIDC tokens, not a static API key.
-- User role/capability checks must happen server-side (CDF ACLs) — do not rely solely on hiding UI elements.
-
-Check the `useAtlasChat` / Atlas agent integration:
-- The `agentExternalId` must not be constructed from user-supplied input.
-- Tool `execute` functions must not trust `args` blindly — validate or guard before using values in CDF queries.
-
----
-
-## Step 5 — Input validation
-
-Every value that comes from a form, URL param, or query string before it reaches a CDF call or is rendered to the DOM must be validated:
+Also check for string-argument timers, which are equivalent to eval:
 
 ```bash
-# Find useSearchParams, URLSearchParams, and form onChange handlers
-grep -rn --include="*.tsx" --include="*.ts" \
-  -E "useSearchParams|URLSearchParams|searchParams\.get|e\.target\.value" src/
+rg -n "setTimeout\s*\(\s*['\"]|setInterval\s*\(\s*['\"]" --type ts src/
+```
+
+---
+
+## Step 4 — Authentication and Authorization
+
+Read the auth setup (usually in `src/contexts/`, `src/hooks/`, or generated by
+`setup-dune-auth`).
+
+**Auth gating** — every route that shows CDF data must be behind the Dune auth
+guard. If `useCogniteClient` returns a non-null `sdk` before rendering, the
+component is gated. If it renders regardless, unauthenticated users can reach it:
+
+```bash
+rg -n "useCogniteClient|useAuth|ProtectedRoute" --type ts src/
+```
+
+Cross-reference with the router to find any route that renders CDF data without
+an auth check.
+
+**Token handling** — the CDF client should be initialized with short-lived OIDC
+tokens, not a static API key. Static keys have no expiry, no user identity, and
+full project-level access.
+
+**Client-side authorization** — hiding a button or route based on user role is a
+UX convenience, not a security boundary. CDF ACLs enforce the real permissions
+server-side. Verify the app doesn't rely solely on UI-level checks to prevent
+unauthorized actions.
+
+**Atlas tool integrations** — if the app uses Atlas agents, check that:
+- `agentExternalId` is not constructed from user-supplied input
+- Tool `execute` functions validate `args` before passing them to CDF queries
+
+---
+
+## Step 5 — Input Validation
+
+Every value that comes from a user (form fields, URL params, query strings) must
+be validated before it reaches a CDF call or gets rendered. Unvalidated input is
+the entry point for injection attacks and data corruption.
+
+```bash
+rg -n "useSearchParams|URLSearchParams|searchParams\.get|e\.target\.value" --type ts src/
 ```
 
 For each hit, verify:
-- The value is validated with Zod or a type guard before use.
-- String values rendered in JSX are not concatenated into raw HTML.
 
----
+- The value is validated with Zod, a type guard, or explicit bounds checking
+  before use in a CDF query
+- String values rendered in JSX go through React's default escaping (not
+  concatenated into raw HTML)
+- Numeric values are parsed with `parseInt`/`parseFloat` and checked for `NaN`
+  before use in calculations or API calls
 
-## Step 6 — Vite / server configuration
-
-Read `vite.config.ts` and any `server.ts` / `express.ts` files:
-
-- Confirm `server.headers` includes at minimum:
-  - `Content-Security-Policy` — restricts script sources
-  - `X-Frame-Options: DENY` or `frame-ancestors 'none'`
-  - `X-Content-Type-Options: nosniff`
-- Confirm the dev proxy (`server.proxy`) does not expose internal endpoints in production builds.
-- Confirm `define` does not embed raw secrets into the bundle (use `import.meta.env` instead).
-
----
-
-## Step 7 — Dependency audit
+Also check for URL construction from user input:
 
 ```bash
-pnpm audit --audit-level=high
+rg -n "new URL|window\.location\.href\s*=" --type ts src/
 ```
 
-List every high/critical vulnerability with its package name, severity, and the recommended fix. If no vulnerabilities are found at high/critical level, state that explicitly.
+User-controlled URLs can be used for open redirect attacks if not validated
+against an allowlist.
 
 ---
 
-## Step 8 — Report findings
+## Step 6 — Build Configuration
 
-Produce a structured report grouped by severity:
+Read `vite.config.ts` and check for configuration-level security issues:
 
-| Severity | File | Line | Issue | Recommendation |
-|----------|------|------|-------|----------------|
-| HIGH | `src/...` | 42 | `eval()` call | Remove; use a data-driven approach |
-| MEDIUM | ... | ... | ... | ... |
-| LOW | ... | ... | ... | ... |
-| INFO | ... | — | Dependency X has a known low-severity CVE | Run `pnpm update X` |
+**Environment variable exposure** — Vite exposes any variable prefixed with
+`VITE_` to the client bundle. Verify that no server-side secrets use the `VITE_`
+prefix:
 
-If no issues are found in a step, state "No issues found" for that step. Do not skip steps silently.
+```bash
+rg -n "VITE_" vite.config.ts .env*
+```
+
+**Dev proxy leaking to production** — if `server.proxy` is configured for local
+development, verify it's not accidentally included in production builds.
+
+**`define` injecting secrets** — `define` in vite config embeds values directly
+into the bundle at build time. Verify it doesn't embed raw secrets:
+
+```bash
+rg -n "define:" vite.config.ts
+```
 
 ---
 
-## Done
+## Step 7 — Dependency Audit
 
-Summarize the total number of findings by severity and list any items that require immediate action before the next deployment.
+Third-party packages are a common attack vector — a single vulnerable transitive
+dependency can compromise the entire app.
+
+```bash
+pnpm audit --audit-level=high 2>&1
+```
+
+List every high/critical vulnerability with its package name, severity, and
+recommended fix. If no high/critical vulnerabilities are found, state that
+explicitly.
+
+Also check for suspicious or unexpected dependencies:
+
+```bash
+rg -n "postinstall|preinstall" package.json
+```
+
+Lifecycle scripts in dependencies can execute arbitrary code at install time.
+
+---
+
+## Report Findings
+
+Use this exact template for the report:
+
+### Security Audit — [App/Component Name]
+
+**Summary**: [1-2 sentence overview of security posture and most critical findings]
+
+| Severity | File | Line | Issue | Recommended Fix |
+|----------|------|------|-------|-----------------|
+| HIGH | `path/to/file` | N | Description | How to fix |
+| MEDIUM | `path/to/file` | N | Description | How to fix |
+| LOW | `path/to/file` | N | Description | How to fix |
+| INFO | `package.json` | — | Dependency CVE details | Upgrade path |
+
+### Steps with no issues found
+- [List any steps where no issues were found]
+
+HIGH = credential leak, XSS vector, or auth bypass.
+MEDIUM = missing validation, unsafe configuration, or dependency vulnerability.
+LOW = best-practice gap with limited exploitability.
+INFO = advisory or dependency CVE with no known exploit path.
+
+If no issues are found in a step, say so explicitly — skipping steps silently
+makes it unclear whether the step was checked.
+
+After presenting the report, offer to fix the HIGH and MEDIUM issues directly.
+Flag any HIGH findings that should block deployment.
+
+---
+
+## Gotchas
+
+1. **React escapes JSX by default, but not always.** Values in `{}` are escaped,
+   but `dangerouslySetInnerHTML`, `href` attributes with `javascript:` URIs, and
+   CSS `url()` values bypass escaping. Don't assume React handles all XSS.
+
+2. **`import.meta.env` values are build-time constants.** They're string-replaced
+   into the bundle — a `VITE_SECRET_KEY` is literally visible in the minified JS.
+   Only use `VITE_` for values that are safe to be public.
+
+3. **OIDC tokens in memory are still vulnerable to XSS.** If an attacker can
+   execute JavaScript on the page, they can read any in-memory token. The defense
+   is preventing XSS in the first place, not hiding the token.
+
+4. **`pnpm audit` only covers known CVEs.** It won't catch malicious packages,
+   typosquatting, or zero-day vulnerabilities. A clean audit is necessary but not
+   sufficient.
+
+5. **CORS misconfigurations are invisible in dev.** Vite's dev proxy bypasses
+   CORS entirely. Issues only appear when the app runs against the real CDF
+   endpoint without the proxy.
+
+6. **Hiding UI elements is not authorization.** A user who can't see the "Delete"
+   button can still call the CDF API directly. CDF ACLs are the real enforcement
+   layer — UI-level checks are cosmetic.
