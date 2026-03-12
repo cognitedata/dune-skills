@@ -1,46 +1,57 @@
 ---
 name: code-quality
-description: "MUST be used whenever reviewing a Dune app for code quality, maintainability, or clean code issues — before a PR review, after a feature is complete, or when the user asks for a code review. Do NOT skip linting steps. Triggers: code quality, code review, clean code, refactor, maintainability, technical debt, any type, naming, dead code, duplication, DRY, single responsibility, component size, lint, linting, TypeScript strict, dependency injection, file structure."
-allowed-tools: Read, Glob, Grep, Shell, Write
-metadata:
-  argument-hint: "[file, directory, or PR branch to review — e.g. 'src/components/AssetPanel.tsx']"
+description: Review a Dune app for code quality, maintainability, and clean code issues. Use this skill whenever the user asks for a code review, refactoring guidance, or cleanup pass, or when they mention technical debt, naming issues, dead code, large components, duplication, TypeScript strictness, or file structure — even if they just say "clean this up" or "review my code."
 ---
 
 # Code Quality Review
 
-Review **$ARGUMENTS** (or the whole app if no argument is given) for code quality issues. Work through every step below in order and report all findings with file paths and line numbers.
+Review **$ARGUMENTS** (or the whole app if no argument is given) for code quality
+issues. Work through every section below and report findings with file paths and
+line numbers.
+
+## Why This Matters
+
+Code quality issues compound over time. A few `any` casts become dozens. A 300-line
+component becomes a 600-line component. Duplicated logic drifts out of sync. These
+issues don't cause bugs today, but they make every future change slower, riskier,
+and harder to review. A periodic quality pass keeps the codebase in a state where
+new features can be added confidently.
 
 ---
 
-## Step 1 — Run the linter first
+## Step 1 — Run Automated Checks First
 
-Before reading any code manually, get a baseline from the automated tools:
-
-```bash
-pnpm run lint
-```
-
-List every error and warning. Fix all errors before proceeding — lint errors are not negotiable. Warnings should be reviewed and resolved unless there is a documented exception.
-
-Also run the TypeScript compiler in strict mode to surface any hidden type issues:
+Before reading any code manually, let the tooling surface the easy wins:
 
 ```bash
-pnpm exec tsc --noEmit
+pnpm run lint 2>&1
 ```
 
-List every type error. These must be fixed.
+List every error and warning. Lint errors should be fixed before proceeding — they
+represent violations of rules the team has already agreed on.
+
+Also run the TypeScript compiler to surface type issues:
+
+```bash
+pnpm exec tsc --noEmit 2>&1
+```
+
+List every type error. These indicate places where the code's actual behaviour
+doesn't match its declared types — a common source of subtle bugs.
 
 ---
 
-## Step 2 — Eliminate `any` types
+## Step 2 — Eliminate `any` Types
 
-Search for `any` usage across the codebase:
+`any` disables TypeScript's type checking for everything it touches. A single
+`any` can silently propagate through an entire call chain, making the type system
+unable to catch bugs downstream.
 
 ```bash
-grep -rn --include="*.ts" --include="*.tsx" -E ": any|as any|<any>" src/
+rg -n ": any|as any|<any>" --type ts src/
 ```
 
-For each hit, replace with the correct type. Common substitutions:
+For each hit, replace with the correct type:
 
 | Instead of | Use |
 |------------|-----|
@@ -48,80 +59,87 @@ For each hit, replace with the correct type. Common substitutions:
 | `any` for event handlers | `React.ChangeEvent<HTMLInputElement>`, `React.MouseEvent`, etc. |
 | `any` for CDF responses | The SDK's own response types (import from `@cognite/sdk`) |
 | `any[]` for arrays | `T[]` with the correct generic |
-| `as any` casts | Proper type narrowing or explicit overloaded function signature |
+| `as any` casts | Proper type narrowing or an explicit overloaded function signature |
 
-The goal is zero `any` in `src/`. If a third-party library forces it, wrap the call in a typed adapter function so `any` does not leak into the app.
+The goal is zero `any` in `src/`. If a third-party library forces it, wrap the
+call in a typed adapter function so `any` does not leak into the rest of the app.
 
 ---
 
-## Step 3 — Check component size and single responsibility
+## Step 3 — Check Component Size and Responsibility
 
-List all `.tsx` files with their line counts:
+Large components that mix data fetching, state management, and rendering are hard
+to test, review, and reuse. They also tend to re-render more than necessary because
+every concern shares the same render cycle.
 
 ```bash
-node -e "const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):p.endsWith('.tsx')?[p]:[]})}walk('src').map(p=>({p,l:fs.readFileSync(p,'utf8').split('\n').length})).sort((a,b)=>b.l-a.l).forEach(({l,p})=>console.log(l,p))"
+rg --files --type ts src/ | xargs wc -l 2>/dev/null | sort -rn | head -20
 ```
 
-Flag every component file over **150 lines**. For each, read it and check:
+Flag component files over ~150 lines and read each one. Check:
 
-- Does it do more than one thing? (fetch data AND render UI AND handle form state)
-- Can the fetch logic move to a custom hook (`useAssetData`)?
-- Can sub-sections be extracted as named sub-components?
+- Does it mix concerns? (fetch data AND render UI AND handle form state)
+- Can the fetch logic move to a custom hook (e.g., `useAssetData`)?
+- Can subsections be extracted as named sub-components?
 
-Apply the split only when it creates a genuinely cleaner separation — do not split for the sake of line count alone. A well-named 200-line component is better than three poorly-named 60-line ones.
+Split only when it creates a genuinely cleaner separation — a well-named 200-line
+component is better than three poorly-named 60-line ones.
 
 ---
 
-## Step 4 — Find and remove duplicate logic (DRY)
+## Step 4 — Find and Remove Duplicate Logic
 
-Search for copy-pasted patterns across hooks, utilities, and components:
+Duplicated code drifts out of sync over time — one copy gets a bug fix, the others
+don't. Search for common duplication patterns:
 
 ```bash
-# Find repeated fetch patterns
-grep -rn --include="*.ts" --include="*.tsx" -E "sdk\.(assets|timeseries|events|files)\.(list|retrieve)" src/
-
-# Find repeated formatting functions
-grep -rn --include="*.ts" --include="*.tsx" -E "toLocaleDateString|toLocaleString|new Date\(" src/
-
-# Find repeated className strings longer than 40 chars
-grep -rn --include="*.tsx" -E 'className="[^"]{40,}"' src/
+rg -n "sdk\.(assets|timeseries|events|files)\.(list|retrieve)" --type ts src/
+rg -n "toLocaleDateString|toLocaleString|new Date\(" --type ts src/
+rg -n "className=\"[^\"]{40,}\"" --type ts src/
 ```
 
 For each set of duplicates:
-- Extract to `src/utils/` if it is a pure function
-- Extract to `src/hooks/` if it contains React state or effects
-- Extract to a shared component if it is JSX
+
+| Duplicate type | Extract to |
+|---------------|------------|
+| Pure function (formatting, calculation) | `src/utils/` |
+| Logic with React state or effects | `src/hooks/` |
+| Repeated JSX structure | Shared component in `src/components/` |
 
 ---
 
-## Step 5 — Enforce dependency injection for external calls
+## Step 5 — Verify SDK Client Usage
 
-Components and hooks must not import the CDF client directly. The SDK client must be obtained from context (via `useCogniteClient()` or a prop) so the component is testable in isolation.
+Components and hooks that construct their own CDF client are untestable in
+isolation — you can't mock the SDK without intercepting the constructor. The
+client should come from the Dune auth context so tests can provide a mock.
 
 ```bash
-grep -rn --include="*.ts" --include="*.tsx" -E "new CogniteClient|createCogniteClient" src/
+rg -n "new CogniteClient|createCogniteClient" --type ts src/
 ```
 
-Flag any direct client construction outside of the app's bootstrap / auth setup file. The pattern should always be:
+Flag any direct client construction outside the app's bootstrap/auth setup file:
 
 ```ts
-// GOOD — client comes from context
+// Problem: untestable, can't mock the client
+const sdk = new CogniteClient({ project: "my-project" });
+
+// Fix: client comes from context
 export function useMyData() {
-  const sdk = useCogniteClient(); // from Dune auth context
+  const sdk = useCogniteClient();
   // ...
 }
-
-// BAD — direct construction inside a hook or component
-const sdk = new CogniteClient({ project: "my-project", ... });
 ```
 
-Similarly, Atlas tools should receive their dependencies via `execute`'s closure over a hook-provided ref, not by importing a global singleton.
+Similarly, Atlas tools should receive dependencies via the `execute` closure over
+a hook-provided ref, not by importing a global singleton.
 
 ---
 
-## Step 6 — Check naming conventions
+## Step 6 — Check Naming Conventions
 
-Read a representative sample of files and verify:
+Inconsistent naming forces every reader to pause and decode intent. Read a
+representative sample of files and verify:
 
 | Artifact | Convention | Examples |
 |----------|-----------|---------|
@@ -135,60 +153,56 @@ Read a representative sample of files and verify:
 Search for common violations:
 
 ```bash
-# TSX components not in PascalCase (filename starts with lowercase)
-node -e "const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):p.endsWith('.tsx')?[p]:[]})}walk('src').filter(p=>/^[a-z]/.test(path.basename(p))).forEach(p=>console.log(p))"
-
-# Hook files not prefixed with "use"
-node -e "const fs=require('fs');fs.readdirSync('src/hooks').filter(f=>f.endsWith('.ts')&&!f.startsWith('use')).forEach(f=>console.log('src/hooks/'+f))"
+rg --files --type ts src/hooks/ | rg -v "^.*use"
+rg --files --glob "*.tsx" src/ | rg "^.*[/\\\\][a-z].*\.tsx$"
 ```
 
 ---
 
-## Step 7 — Remove dead code
+## Step 7 — Remove Dead Code
 
-```powershell
-# Find commented-out code blocks (3+ consecutive commented lines)
-Get-ChildItem -Recurse -Include "*.ts","*.tsx" src | ForEach-Object {
-    $file = $_; $lines = Get-Content $file.FullName
-    $count = 0; $startLine = 0
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\s*//') {
-            if ($count -eq 0) { $startLine = $i + 1 }
-            $count++
-        } else {
-            if ($count -ge 3) { "$($file.FullName):$startLine — $count consecutive comment lines" }
-            $count = 0
-        }
-    }
-    if ($count -ge 3) { "$($file.FullName):$startLine — $count consecutive comment lines" }
-}
+Dead code creates noise — it misleads readers into thinking it's still relevant
+and makes search results harder to scan.
 
-# Find console.log/debug statements
-grep -rn --include="*.tsx" --include="*.ts" -E "console\.(log|debug|warn|error|info)" src/
-
-# Find TODO/FIXME/HACK comments
-grep -rn --include="*.tsx" --include="*.ts" -E "(TODO|FIXME|HACK|XXX):" src/
+```bash
+rg -n "console\.(log|debug)" --type ts src/
+rg -n "(TODO|FIXME|HACK|XXX):" --type ts src/
 ```
 
-Rules:
-- `console.log` and `console.debug` must be removed before shipping (use proper error logging for `console.error`).
-- Commented-out code blocks must be removed — version control preserves history.
-- `TODO` and `FIXME` comments older than the current sprint should be resolved or converted to tracked issues.
-- Unused imports are caught by the linter (Step 1); confirm they are gone.
+Also search for commented-out code blocks (3+ consecutive comment lines are
+usually dead code, not documentation):
+
+```bash
+rg -n "^\s*//" --type ts src/
+```
+
+Scan the results for clusters of consecutive commented lines.
+
+Guidelines:
+
+- **`console.log` / `console.debug`** — remove before shipping. Use structured
+  error logging for `console.error` if needed for production diagnostics.
+- **Commented-out code** — delete it. Version control preserves history; commented
+  code just creates confusion about whether it's still needed.
+- **`TODO` / `FIXME`** — resolve or convert to tracked issues. Stale TODOs
+  become invisible over time.
+- **Unused imports** — should already be caught by the linter (Step 1). Confirm
+  they're gone.
 
 ---
 
-## Step 8 — Verify file and export structure
+## Step 8 — Verify File and Export Structure
 
-Every feature area should follow a consistent structure. Check that the app's layout matches this pattern:
+A consistent structure makes the codebase navigable — developers know where to
+find things without searching. Check that the app follows a pattern like:
 
 ```
 src/
 ├── components/         # Shared presentational components
 │   └── <name>/
 │       ├── <name>.tsx
-│       └── index.ts    # re-exports the public API
-├── hooks/              # Custom hooks (each file = one hook)
+│       └── index.ts    # Re-exports the public API
+├── hooks/              # Custom hooks (one hook per file)
 ├── utils/              # Pure utility functions (no React)
 ├── contexts/           # React context providers
 ├── pages/ or views/    # Route-level components
@@ -196,29 +210,66 @@ src/
 ```
 
 Flag:
-- Business logic sitting directly in page components (should be in hooks)
-- Utility functions living inside component files (should be in `utils/`)
-- Types defined inline in component files when they are used across multiple files (should be in `types/`)
-- Missing `index.ts` barrel files for component directories (makes imports verbose)
+
+- Business logic sitting in page components (should be in hooks or utils)
+- Utility functions defined inside component files (should be in `utils/`)
+- Types defined inline when they're used across multiple files (should be in
+  `types/`)
+- Missing `index.ts` barrel files for component directories (forces verbose
+  import paths)
 
 ---
 
-## Step 9 — Report findings
+## Report Findings
 
-Produce a structured report grouped by category:
+Use this exact template for the report:
 
-| Category | File | Line | Issue | Recommendation |
-|----------|------|------|-------|----------------|
-| TypeScript | `src/hooks/useData.ts` | 18 | `response as any` cast | Import and use `NodeItem` type from `@cognite/sdk` |
-| Size | `src/components/Dashboard.tsx` | — | 340 lines, mixes fetch and render logic | Extract `useDashboardData` hook (~120 lines) |
-| DRY | `src/components/A.tsx`, `src/components/B.tsx` | 45, 62 | Identical date formatter | Extract to `src/utils/formatDate.ts` |
-| Naming | `src/hooks/data.ts` | — | File name does not start with `use` | Rename to `useData.ts` |
-| Dead code | `src/App.tsx` | 88 | `console.log("debug response", data)` | Remove |
+### Code Quality Review — [App/Component Name]
 
-If no issues are found in a step, state "No issues found" for that step. Do not skip steps silently.
+**Summary**: [1-2 sentence overview of code health and highest-impact improvements]
+
+| Category | File | Line | Issue | Recommended Fix |
+|----------|------|------|-------|-----------------|
+| TypeScript | `path/to/file` | N | Description | How to fix |
+| Size | `path/to/file` | — | Description | How to fix |
+| DRY | `path/to/file` | N | Description | How to fix |
+| Naming | `path/to/file` | — | Description | How to fix |
+| Dead code | `path/to/file` | N | Description | How to fix |
+| Structure | `path/to/file` | — | Description | How to fix |
+
+### Steps with no issues found
+- [List any steps where no issues were found]
+
+If no issues are found in a step, say so explicitly — skipping steps silently
+makes it unclear whether the step was checked.
+
+After presenting the report, offer to fix the issues directly — starting with
+`any` types and lint errors, which are the most mechanical to resolve.
 
 ---
 
-## Done
+## Gotchas
 
-Summarize the total number of findings by category and list the highest-impact items to address first. Any `any` type and lint error must be treated as blocking — list these separately.
+1. **Don't over-abstract.** Extracting a utility function used in exactly one
+   place adds indirection without reducing duplication. Wait until a pattern
+   appears in two or more places before extracting.
+
+2. **Barrel files can break tree-shaking.** An `index.ts` that re-exports
+   everything from a directory forces the bundler to include all exports even
+   when only one is used. Keep barrel files small and specific.
+
+3. **`unknown` is not a drop-in replacement for `any`.** Replacing `any` with
+   `unknown` without adding a type guard just moves the error — you still need
+   to narrow the type before using it.
+
+4. **Naming conventions are team norms, not universal rules.** If the codebase
+   consistently uses a different convention (e.g., `camelCase` filenames), follow
+   the existing convention rather than imposing a new one mid-project.
+
+5. **Line count alone is not a quality signal.** A 250-line component with a
+   clear single responsibility is better than a 100-line component that imports
+   five tightly-coupled helper files. Split based on responsibility, not line count.
+
+6. **`console.error` is sometimes intentional.** Not every console statement is
+   dead code — `console.error` in catch blocks provides production diagnostics.
+   Only flag `console.log` and `console.debug` for removal.
