@@ -42,40 +42,6 @@ It's OK to briefly explain terms if you're in doubt, and feel free to clarify te
 
 ---
 
-## API Credentials
-
-Several scripts in this skill (description optimization, eval runs, improvement loops) need Anthropic API access. Before running any of them, you must ensure `ANTHROPIC_API_KEY` is available.
-
-**Model:** Set `SKILL_MODEL` in `.env` to specify which model to use for evals and description optimization. This avoids having to pass `--model` every time. If not set, fall back to the model ID from your system prompt (the one powering the current session).
-
-### How to load credentials
-
-**Never pass API keys inline in shell commands** — they end up in shell history and process listings. Always load from environment.
-
-**Step 1: Check for existing keys.** Before running any script, check if the key is already set:
-
-```bash
-echo $ANTHROPIC_API_KEY
-```
-
-**Step 2: If the key is not set, look for a `.env` file** in the project root and source it:
-
-```bash
-source .env && python -m scripts.run_loop ...
-```
-
-**Step 3: If no `.env` file exists, ask the user.** Don't guess or proceed without credentials — the scripts will fail silently or with cryptic errors. Have the user create a `.env` file:
-
-```bash
-# .env (git-ignored — safe to store secrets here)
-export SKILL_MODEL="claude-opus-4-6"
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-**Always prefix script commands with `source .env &&`** to ensure credentials are loaded in the shell session. This applies to `run_eval`, `run_loop`, `improve_description`, and any other script that hits an API.
-
----
-
 ## Creating a skill
 
 ### Capture Intent
