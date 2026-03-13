@@ -10,9 +10,9 @@ Builder types `/design-review` in their tool.
 
 ## Workflow
 
-### Step 1: Load the checklist
+### Step 1: Load the design review skill
 
-Read `.cursor/skills/design-quality-checklist/SKILL.md` to load all
+Read `.cursor/skills/design-review/SKILL.md` to load all
 10 criteria with rubrics and cross-references.
 
 ### Step 2: Check for prior reviews
@@ -151,19 +151,19 @@ Correlate visual findings with code findings where possible:
 ### Step 4: Score each criterion
 
 Before listing findings, apply pattern grouping per the
-`<pattern-grouping>` section in the checklist skill. Aggregate
+`<pattern-grouping>` section in the design review skill. Aggregate
 findings that share the same root cause into a single [PATTERN]
 entry with instance count and consolidated fix prompt.
 
-Apply the quantitative rubric thresholds from the checklist skill.
+Apply the quantitative rubric thresholds from the design review skill.
 Use the violation counts from Step 3 to determine scores objectively.
 Score 1-5 with specific findings per criterion.
-For each finding, use the fix-output-format from the checklist skill
+For each finding, use the fix-output-format from the design review skill
 (file:line, current code, replacement, auto-fixable flag).
 
 ### Step 5: Generate the pre-fix report
 
-Use the output format from `.cursor/skills/design-quality-checklist/SKILL.md`.
+Use the output format from `.cursor/skills/design-review/SKILL.md`.
 
 If prior reviews exist, add a comparison section:
 
@@ -192,7 +192,7 @@ Skip auto-fix if:
 - The fix would change more than 5 lines in a single edit
   (likely needs human review)
 - The replacement is not semantically equivalent
-  (see `<auto-fix-rules>` in the checklist skill)
+  (see `<auto-fix-rules>` in the design review skill)
 
 ### Step 7: Re-verify affected criteria
 

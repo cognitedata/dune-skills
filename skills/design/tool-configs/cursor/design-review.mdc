@@ -12,7 +12,7 @@ review of the current project.
 
 This rule requires the following skills to be installed
 (symlinked into ~/.cursor/skills/):
-- design-quality-checklist
+- design-review
 - aura-tokens
 - aura-components
 - content-guidelines
@@ -22,12 +22,11 @@ This rule requires the following skills to be installed
 
 ## Workflow
 
-1. **Read the checklist skill** at the path configured for
-   `design-quality-checklist/SKILL.md`. This contains all
+1. **Read the design review skill** at `design-review/SKILL.md`. This contains all
    10 criteria with quantitative rubric thresholds.
 
-2. **Read the command definition** at `commands/design-review.md`
-   in the design skill directory for the full scan workflow.
+2. **Read the workflow definition** at `.cursor/skills/design-review/workflow.md`
+   for the full scan workflow.
 
 3. **Check for prior reviews** — look for
    `.design-reviews/history.json` in the current project root.
@@ -35,7 +34,7 @@ This rule requires the following skills to be installed
    the same score for 2+ reviews (see History-aware prioritization).
 
 4. **Scan the codebase** using grep patterns and code reading
-   as defined in the command workflow:
+   as defined in the workflow:
 
    For criterion 1 (Aura tokens), run these searches:
    - Search for hardcoded hex values in style props
@@ -48,16 +47,16 @@ This rule requires the following skills to be installed
      when an Aura equivalent exists
 
    For criteria 2-10, follow the scan instructions in the
-   command definition.
+   workflow.
 
 5. **Score each criterion** 1-5 using the quantitative rubrics.
    Use the violation count thresholds to determine scores objectively.
    Before listing findings, apply pattern grouping per the
-   `<pattern-grouping>` section in the checklist skill. Aggregate
+   `<pattern-grouping>` section in the design review skill. Aggregate
    findings that share the same root cause into a single [PATTERN]
    entry with instance count and consolidated fix prompt.
    For each finding, include file:line, current/replacement code,
-   and auto-fixable flag per the fix-output-format in the checklist.
+   and auto-fixable flag per the fix-output-format in the design review skill.
    Classify as CODE, GREP, VISUAL, or MANUAL.
    For criteria that need VISUAL verification (5, 7, 9, 10),
    use browser-use if available, otherwise mark "(code-level only)".
@@ -91,7 +90,7 @@ This rule requires the following skills to be installed
 
 6. **Auto-fix pass** — Apply all auto-fixable findings.
    Group edits by file.
-   See `<auto-fix-rules>` in the checklist skill for safety rules.
+   See `<auto-fix-rules>` in the design review skill for safety rules.
    Track each fix: { file, line, before, after, criterion }.
 
 7. **Re-verify** — Re-run grep patterns for affected criteria.
@@ -99,7 +98,7 @@ This rule requires the following skills to be installed
    Use post-fix scores as final scores.
 
 8. **Generate the report** using the output format from the
-   checklist skill. Include:
+   design review skill. Include:
    - Overall post-fix score and level
    - Pre-fix vs post-fix comparison
    - Per-criterion findings with fix prompts

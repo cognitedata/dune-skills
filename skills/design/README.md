@@ -20,24 +20,24 @@ These activate automatically when the AI detects relevant work:
 
 | Skill | What it does | Activates when... |
 |-------|-------------|-------------------|
-| [aura-tokens](../skills/design/aura-tokens/SKILL.md) | Enforces semantic design tokens, prevents hardcoded values | Writing or modifying styles |
-| [aura-components](../skills/design/aura-components/SKILL.md) | Guides Aura component selection, prevents custom rebuilds | Creating interactive UI |
-| [layout-patterns](../skills/design/layout-patterns/SKILL.md) | Provides approved page layouts with responsive specs | Creating or restructuring pages |
-| [content-guidelines](../skills/design/content-guidelines/SKILL.md) | UX writing standards, text patterns, voice and tone | Writing user-facing text |
-| [accessibility](../skills/design/accessibility/SKILL.md) | Keyboard nav, ARIA, focus management, alt text | Building interactive elements |
-| [error-validation](../skills/design/error-validation/SKILL.md) | Form validation, loading states, error handling | Building forms or handling API responses |
+| [aura-tokens](aura-tokens/SKILL.md) | Enforces semantic design tokens, prevents hardcoded values | Writing or modifying styles |
+| [aura-components](aura-components/SKILL.md) | Guides Aura component selection, prevents custom rebuilds | Creating interactive UI |
+| [layout-patterns](layout-patterns/SKILL.md) | Provides approved page layouts with responsive specs | Creating or restructuring pages |
+| [content-guidelines](content-guidelines/SKILL.md) | UX writing standards, text patterns, voice and tone | Writing user-facing text |
+| [accessibility](accessibility/SKILL.md) | Keyboard nav, ARIA, focus management, alt text | Building interactive elements |
+| [error-validation](error-validation/SKILL.md) | Form validation, loading states, error handling | Building forms or handling API responses |
 
 ### Codebase Entry Point
 
 | Skill | What it does | Activates when... |
 |-------|-------------|-------------------|
-| [design-quality-checklist](../skills/design/design-quality-checklist/SKILL.md) | Scores the app against 10 criteria using all skills above | Running `/design-review` |
+| [design-review](design-review/SKILL.md) | Scores the app against 10 criteria using all skills above | Running `/design-review` |
 
 ## The `/design-review` Command
 
 Runs a comprehensive quality review with a closed-loop auto-fix workflow. The review scans your codebase against 10 criteria, scores each 1-5, auto-fixes what it can, re-verifies, and generates a report with before/after comparisons. Scores are tracked over time so you can see improvement across reviews.
 
-For the full command definition, see [commands/design-review.md](commands/design-review.md).
+For the full workflow definition, see [design-review/workflow.md](design-review/workflow.md).
 
 ### How It Works
 
@@ -55,7 +55,7 @@ flowchart TD
 
 ### What Each Skill Checks
 
-The **design-quality-checklist** cross-references all six build-time skills during the review. Each skill feeds specific criteria:
+The **design-review** skill cross-references all six build-time skills during the review. Each skill feeds specific criteria:
 
 ```mermaid
 flowchart LR
@@ -153,6 +153,7 @@ If you want these skills available in any project:
 for skill in skills/design/*/; do
   name=$(basename "$skill")
   [ "$name" = "shared" ] && continue
+  [ "$name" = "tool-configs" ] && continue
   ln -sf "$(cd "$skill" && pwd)" "$HOME/.cursor/skills/$name"
 done
 ```
@@ -162,7 +163,7 @@ done
 ```bash
 # Run from the target project root
 mkdir -p .cursor/rules
-ln -sf /path/to/dune-skills/design/tool-configs/cursor/design-review.mdc .cursor/rules/design-review.mdc
+ln -sf /path/to/dune-skills/skills/design/tool-configs/cursor/design-review.mdc .cursor/rules/design-review.mdc
 ```
 
 ### Claude Code Setup
@@ -170,7 +171,7 @@ ln -sf /path/to/dune-skills/design/tool-configs/cursor/design-review.mdc .cursor
 ```bash
 # Run from the target project root
 mkdir -p .claude/commands
-ln -sf /path/to/dune-skills/design/tool-configs/claude-code/design-review.md .claude/commands/design-review.md
+ln -sf /path/to/dune-skills/skills/design/tool-configs/claude-code/design-review.md .claude/commands/design-review.md
 ```
 
 Then use `/design-review` in Claude Code to trigger the review.
@@ -218,7 +219,7 @@ The review scans the entire project where the command is triggered. For partial 
 The review still works. It flags non-Aura components and scores accordingly. Use the auto-fix suggestions to migrate incrementally.
 
 **Can I customize the scoring thresholds?**
-Not currently. Thresholds are defined in the [design-quality-checklist](../skills/design/design-quality-checklist/SKILL.md) rubrics. You can fork and adjust for your team's standards.
+Not currently. Thresholds are defined in the [design-review](design-review/SKILL.md) rubrics. You can fork and adjust for your team's standards.
 
 ## File Structure
 
@@ -226,6 +227,13 @@ Not currently. Thresholds are defined in the [design-quality-checklist](../skill
 dune-skills/
 ├── skills/
 │   ├── design/
+│   │   ├── README.md                  # This file
+│   │   ├── tool-configs/
+│   │   │   ├── README.md              # Installation instructions
+│   │   │   ├── cursor/
+│   │   │   │   └── design-review.mdc  # Cursor rule adapter
+│   │   │   └── claude-code/
+│   │   │       └── design-review.md   # Claude Code adapter
 │   │   ├── accessibility/
 │   │   │   └── SKILL.md               # Keyboard nav, ARIA, focus management
 │   │   ├── aura-components/
@@ -238,8 +246,9 @@ dune-skills/
 │   │   │   ├── examples/              # Before/after UX text improvements
 │   │   │   ├── references/            # Voice chart, audience, checklist
 │   │   │   └── templates/             # Error, empty state, onboarding
-│   │   ├── design-quality-checklist/
-│   │   │   └── SKILL.md               # 10-criteria review orchestration
+│   │   ├── design-review/
+│   │   │   ├── SKILL.md               # 10-criteria review orchestration
+│   │   │   └── workflow.md            # Tool-agnostic workflow definition
 │   │   ├── error-validation/
 │   │   │   └── SKILL.md               # Form validation, loading states
 │   │   ├── layout-patterns/
@@ -250,16 +259,6 @@ dune-skills/
 │   │   └── use-aura-design-system/
 │   │       └── SKILL.md               # Aura Design System implementation
 │   └── (non-design skills: code-quality, performance, security, …)
-├── design/
-│   ├── README.md                  # This file
-│   ├── commands/
-│   │   └── design-review.md       # Tool-agnostic command definition
-│   └── tool-configs/
-│       ├── README.md              # Installation instructions
-│       ├── cursor/
-│       │   └── design-review.mdc  # Cursor rule adapter (codebase entry)
-│       └── claude-code/
-│           └── design-review.md   # Claude Code adapter (codebase entry)
 └── README.md
 ```
 
@@ -269,7 +268,7 @@ All skills reference the Aura Storybook for component documentation and token va
 
 **Base URL:** https://cognitedata.github.io/aura/storybook/
 
-See `../skills/design/shared/storybook-links.md` for the complete URL inventory.
+See `shared/storybook-links.md` for the complete URL inventory.
 
 ## Support
 
