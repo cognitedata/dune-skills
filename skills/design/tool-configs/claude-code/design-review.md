@@ -6,14 +6,14 @@ actionable fix suggestions, and track scores over time.
 
 ## Instructions
 
-1. Read the design quality checklist skill:
-   `.cursor/skills/design-quality-checklist/SKILL.md`
+1. Read the design review skill:
+   `.cursor/skills/design-review/SKILL.md`
 
-2. Read the command workflow: `commands/design-review.md`
+2. Read the workflow: `.cursor/skills/design-review/workflow.md`
 
 3. Check for prior reviews in `.design-reviews/history.json`
 
-4. Scan the codebase following the command workflow:
+4. Scan the codebase following the workflow:
    - Use grep/search for CODE and GREP verifiable criteria
    - For each finding, note the file, line, and specific issue
    - Classify findings as CODE, GREP, VISUAL, or MANUAL
@@ -34,16 +34,16 @@ actionable fix suggestions, and track scores over time.
 
 5. Score each of the 10 criteria (1-5) using the rubrics.
    Before listing findings, apply pattern grouping per the
-   `<pattern-grouping>` section in the checklist skill.
+   `<pattern-grouping>` section in the design review skill.
    Aggregate findings that share the same root cause into
    a single [PATTERN] entry with instance count and
    consolidated fix prompt.
 
 6. Auto-fix pass: Apply all auto-fixable findings per
-   `<auto-fix-rules>` in the checklist skill. Group edits
+   `<auto-fix-rules>` in the design review skill. Group edits
    by file. Re-verify affected criteria and re-score.
 
-7. Generate the report in the format specified by the checklist
+7. Generate the report in the format specified by the design review
    skill, including:
    - Overall score and level
    - Pattern-grouped findings with fix prompts

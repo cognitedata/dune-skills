@@ -28,6 +28,7 @@ jobs:
           done
           for skill in skills/design/*/; do
             [ "$(basename "$skill")" = "shared" ] && continue
+            [ "$(basename "$skill")" = "tool-configs" ] && continue
             echo "Validating $skill..."
             npx skills-ref validate "$skill"
           done

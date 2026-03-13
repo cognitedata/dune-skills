@@ -1,5 +1,5 @@
 ---
-name: design-quality-checklist
+name: design-review
 description: Evaluates application quality against Aura design standards with scores and Cursor-promptable fix suggestions. Use when running /design-review, evaluating the app, or generating a design review report for human reviewers.
 allowed-tools: Read, Glob, Grep, Edit, Write
 ---
