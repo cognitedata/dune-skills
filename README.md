@@ -33,6 +33,10 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **use-aura-design-system** | Implements or migrates to the Aura Design System in Dune/React apps |
 | **aura-tokens** | Enforces semantic Aura design tokens via Tailwind |
 | **aura-components** | Guides Aura component selection, prevents custom rebuilds |
+| **accessibility** | Page-level accessibility — keyboard nav, ARIA, focus management |
+| **content-guidelines** | UX writing standards, text patterns, voice and tone |
+| **error-validation** | Form validation, loading states, error handling patterns |
+| **layout-patterns** | Approved page layouts with responsive specs |
 
 ## Contributing
 
