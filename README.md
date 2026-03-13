@@ -37,6 +37,7 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **content-guidelines** | UX writing standards, text patterns, voice and tone |
 | **error-validation** | Form validation, loading states, error handling patterns |
 | **layout-patterns** | Approved page layouts with responsive specs |
+| **design-quality-checklist** | Scores app against 10 Aura design criteria with fix suggestions |
 
 ## Contributing
 
