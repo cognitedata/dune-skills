@@ -21,6 +21,7 @@ jobs:
       - name: Validate skills
         run: |
           for skill in skills/*/; do
+            [ "$(basename "$skill")" = "shared" ] && continue
             echo "Validating $skill..."
             npx skills-ref validate "$skill"
           done
