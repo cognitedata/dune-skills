@@ -22,6 +22,12 @@ jobs:
         run: |
           for skill in skills/*/; do
             [ "$(basename "$skill")" = "shared" ] && continue
+            [ "$(basename "$skill")" = "design" ] && continue
+            echo "Validating $skill..."
+            npx skills-ref validate "$skill"
+          done
+          for skill in skills/design/*/; do
+            [ "$(basename "$skill")" = "shared" ] && continue
             echo "Validating $skill..."
             npx skills-ref validate "$skill"
           done

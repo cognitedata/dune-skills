@@ -17,7 +17,7 @@ Skills are installed to `.cursor/skills/` in the target project and auto-discove
 
 ```bash
 # Run from dune-skills/
-for skill in skills/*/; do
+for skill in skills/design/*/; do
   name=$(basename "$skill")
   [ "$name" = "shared" ] && continue
   ln -sf "$(cd "$skill" && pwd)" "$HOME/.cursor/skills/$name"

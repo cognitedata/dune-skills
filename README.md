@@ -41,7 +41,7 @@ npx @cognite/dune skills pull --skill create-client-tool
 
 ## Contributing
 
-Add a new skill by creating a `skills/<name>/SKILL.md` file with proper frontmatter:
+Add a new skill by creating a `skills/<name>/SKILL.md` file (non-design) or `skills/design/<name>/SKILL.md` (design skills) with proper frontmatter:
 
 ```yaml
 ---

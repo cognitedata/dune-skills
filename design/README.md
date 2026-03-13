@@ -20,18 +20,18 @@ These activate automatically when the AI detects relevant work:
 
 | Skill | What it does | Activates when... |
 |-------|-------------|-------------------|
-| [aura-tokens](../skills/aura-tokens/SKILL.md) | Enforces semantic design tokens, prevents hardcoded values | Writing or modifying styles |
-| [aura-components](../skills/aura-components/SKILL.md) | Guides Aura component selection, prevents custom rebuilds | Creating interactive UI |
-| [layout-patterns](../skills/layout-patterns/SKILL.md) | Provides approved page layouts with responsive specs | Creating or restructuring pages |
-| [content-guidelines](../skills/content-guidelines/SKILL.md) | UX writing standards, text patterns, voice and tone | Writing user-facing text |
-| [accessibility](../skills/accessibility/SKILL.md) | Keyboard nav, ARIA, focus management, alt text | Building interactive elements |
-| [error-validation](../skills/error-validation/SKILL.md) | Form validation, loading states, error handling | Building forms or handling API responses |
+| [aura-tokens](../skills/design/aura-tokens/SKILL.md) | Enforces semantic design tokens, prevents hardcoded values | Writing or modifying styles |
+| [aura-components](../skills/design/aura-components/SKILL.md) | Guides Aura component selection, prevents custom rebuilds | Creating interactive UI |
+| [layout-patterns](../skills/design/layout-patterns/SKILL.md) | Provides approved page layouts with responsive specs | Creating or restructuring pages |
+| [content-guidelines](../skills/design/content-guidelines/SKILL.md) | UX writing standards, text patterns, voice and tone | Writing user-facing text |
+| [accessibility](../skills/design/accessibility/SKILL.md) | Keyboard nav, ARIA, focus management, alt text | Building interactive elements |
+| [error-validation](../skills/design/error-validation/SKILL.md) | Form validation, loading states, error handling | Building forms or handling API responses |
 
 ### Codebase Entry Point
 
 | Skill | What it does | Activates when... |
 |-------|-------------|-------------------|
-| [design-quality-checklist](../skills/design-quality-checklist/SKILL.md) | Scores the app against 10 criteria using all skills above | Running `/design-review` |
+| [design-quality-checklist](../skills/design/design-quality-checklist/SKILL.md) | Scores the app against 10 criteria using all skills above | Running `/design-review` |
 
 ## The `/design-review` Command
 
@@ -150,7 +150,7 @@ If you want these skills available in any project:
 
 ```bash
 # Run from dune-skills/
-for skill in skills/*/; do
+for skill in skills/design/*/; do
   name=$(basename "$skill")
   [ "$name" = "shared" ] && continue
   ln -sf "$(cd "$skill" && pwd)" "$HOME/.cursor/skills/$name"
@@ -218,34 +218,38 @@ The review scans the entire project where the command is triggered. For partial 
 The review still works. It flags non-Aura components and scores accordingly. Use the auto-fix suggestions to migrate incrementally.
 
 **Can I customize the scoring thresholds?**
-Not currently. Thresholds are defined in the [design-quality-checklist](../skills/design-quality-checklist/SKILL.md) rubrics. You can fork and adjust for your team's standards.
+Not currently. Thresholds are defined in the [design-quality-checklist](../skills/design/design-quality-checklist/SKILL.md) rubrics. You can fork and adjust for your team's standards.
 
 ## File Structure
 
 ```
 dune-skills/
 ├── skills/
-│   ├── accessibility/
-│   │   └── SKILL.md               # Keyboard nav, ARIA, focus management
-│   ├── aura-components/
-│   │   └── SKILL.md               # Component selection, import guidance
-│   ├── aura-tokens/
-│   │   └── SKILL.md               # Design token enforcement
-│   ├── content-guidelines/
-│   │   ├── SKILL.md               # UX writing standards
-│   │   ├── docs/                  # Figma MCP integration guides
-│   │   ├── examples/              # Before/after UX text improvements
-│   │   ├── references/            # Voice chart, audience, checklist
-│   │   └── templates/             # Error, empty state, onboarding
-│   ├── design-quality-checklist/
-│   │   └── SKILL.md               # 10-criteria review orchestration
-│   ├── error-validation/
-│   │   └── SKILL.md               # Form validation, loading states
-│   ├── layout-patterns/
-│   │   ├── SKILL.md               # Page layout consistency
-│   │   └── templates/             # 9 layout implementation templates
-│   └── shared/
-│       └── storybook-links.md     # All Aura Storybook URLs
+│   ├── design/
+│   │   ├── accessibility/
+│   │   │   └── SKILL.md               # Keyboard nav, ARIA, focus management
+│   │   ├── aura-components/
+│   │   │   └── SKILL.md               # Component selection, import guidance
+│   │   ├── aura-tokens/
+│   │   │   └── SKILL.md               # Design token enforcement
+│   │   ├── content-guidelines/
+│   │   │   ├── SKILL.md               # UX writing standards
+│   │   │   ├── docs/                  # Figma MCP integration guides
+│   │   │   ├── examples/              # Before/after UX text improvements
+│   │   │   ├── references/            # Voice chart, audience, checklist
+│   │   │   └── templates/             # Error, empty state, onboarding
+│   │   ├── design-quality-checklist/
+│   │   │   └── SKILL.md               # 10-criteria review orchestration
+│   │   ├── error-validation/
+│   │   │   └── SKILL.md               # Form validation, loading states
+│   │   ├── layout-patterns/
+│   │   │   ├── SKILL.md               # Page layout consistency
+│   │   │   └── templates/             # 9 layout implementation templates
+│   │   ├── shared/
+│   │   │   └── storybook-links.md     # All Aura Storybook URLs
+│   │   └── use-aura-design-system/
+│   │       └── SKILL.md               # Aura Design System implementation
+│   └── (non-design skills: code-quality, performance, security, …)
 ├── design/
 │   ├── README.md                  # This file
 │   ├── commands/
@@ -265,7 +269,7 @@ All skills reference the Aura Storybook for component documentation and token va
 
 **Base URL:** https://cognitedata.github.io/aura/storybook/
 
-See `../skills/shared/storybook-links.md` for the complete URL inventory.
+See `../skills/design/shared/storybook-links.md` for the complete URL inventory.
 
 ## Support
 
