@@ -23,6 +23,16 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **create-client-tool** | Scaffolds an `AtlasTool` and wires it into `useAtlasChat` |
 | **integrate-atlas-chat** | Adds streaming Atlas Agent chat UI to a Dune app |
 | **setup-python-tools** | Adds Pyodide-based Python tool execution |
+| **code-quality** | Reviews Dune apps for code quality, maintainability, and clean code issues |
+| **correctness-and-error-handling** | Reviews for bugs, missing error states, unhandled rejections, and edge cases |
+| **dm-limits-and-best-practices** | CDF Data Modeling API best practices — concurrency, pagination, batching |
+| **integrate-file-viewer** | Integrates CogniteFileViewer to preview CDF files (PDFs, images, text) |
+| **performance** | Optimizes Dune apps for speed, render counts, and bundle size |
+| **security** | Reviews for security issues — credentials, user input, external data |
+| **setup-dune-auth** | Migrates React apps to Dune auth or adds DuneAuthProvider |
+| **use-aura-design-system** | Implements or migrates to the Aura Design System in Dune/React apps |
+| **aura-tokens** | Enforces semantic Aura design tokens via Tailwind |
+| **aura-components** | Guides Aura component selection, prevents custom rebuilds |
 
 ## Contributing
 
