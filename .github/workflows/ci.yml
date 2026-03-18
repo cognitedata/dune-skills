@@ -20,15 +20,8 @@ jobs:
 
       - name: Validate skills
         run: |
-          for skill in skills/*/; do
-            [ "$(basename "$skill")" = "shared" ] && continue
-            [ "$(basename "$skill")" = "design" ] && continue
-            echo "Validating $skill..."
-            npx skills-ref validate "$skill"
-          done
-          for skill in skills/design/*/; do
-            [ "$(basename "$skill")" = "shared" ] && continue
-            [ "$(basename "$skill")" = "tool-configs" ] && continue
-            echo "Validating $skill..."
-            npx skills-ref validate "$skill"
+          find skills -maxdepth 2 -name 'SKILL.md' -print0 | while IFS= read -r -d '' skill; do
+            dir="$(dirname "$skill")"
+            echo "Validating $dir..."
+            npx skills-ref validate "$dir"
           done
