@@ -1,0 +1,62 @@
+{
+  "skill_name": "reveal-3d",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Dune app at ../dune-app-template. Add a 3D viewer page where I can browse and load CAD models from my CDF project. Add a button on the main page to reach it.",
+      "expected_output": "A working 3D viewer page with model browsing, Vite configured for Reveal, process polyfill in main.tsx, and a navigation button on the landing page.",
+      "files": [],
+      "expectations": [
+        "@cognite/reveal, three, process, and @cognite/dune-industrial-components are in package.json dependencies",
+        "vite.config.ts has define block with process.env, process.platform, process.version, and global",
+        "vite.config.ts has resolve.alias for util, assert, process, and three pointing to three/build/three.module.js",
+        "vite.config.ts has optimizeDeps.include with process, util, assert, three, @cognite/reveal",
+        "vite.config.ts has resolve.dedupe with three",
+        "main.tsx imports process and assigns (window as unknown as Record<string, unknown>).process = process before all other imports",
+        "Viewer component wraps content in RevealKeepAlive",
+        "RevealProvider is inside RevealKeepAlive",
+        "resources prop is memoized with useMemo",
+        "onModelsLoaded callback is memoized with useCallback",
+        "SDK client is memoized with useMemo",
+        "Viewer container has an explicit height (e.g. style or className with height)",
+        "App.tsx or main page has a button or link to navigate to the 3D viewer",
+        "Viewer component is lazy-loaded with React.lazy and wrapped in Suspense"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I have an FDM asset with space cdf_idm and externalId pump_001. Add a 3D viewer to my asset detail page that shows the CAD model linked to this asset. The detail page is at src/AssetDetail.tsx.",
+      "expected_output": "A Viewer3D component using useModelsForInstanceQuery to discover models for the FDM instance, integrated into AssetDetail.tsx with proper provider nesting.",
+      "files": [],
+      "expectations": [
+        "@cognite/dune-industrial-components is in package.json dependencies",
+        "Uses useModelsForInstanceQuery hook to discover 3D models from the FDM instance",
+        "Passes a DMInstanceRef with space and externalId to the query hook",
+        "RevealKeepAlive wraps RevealProvider",
+        "resources is derived from useModelsForInstanceQuery result and memoized",
+        "onModelsLoaded is wrapped in useCallback",
+        "SDK is memoized via useMemo to prevent viewer re-initialization",
+        "The viewer is rendered inside AssetDetail.tsx with an explicit height container",
+        "viewerOptions includes antiAliasingHint and ssaoQualityHint",
+        "Viewer component is lazy-loaded with React.lazy and wrapped in Suspense"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add a full-screen 3D viewer that loads model ID 206509079235820 revision 576781257263693. Put it at a /viewer route.",
+      "expected_output": "A full-screen DirectViewer-style component loading the specific model/revision, accessible at /viewer route, with all Reveal prerequisites configured.",
+      "files": [],
+      "expectations": [
+        "Component passes modelId 206509079235820 and revisionId 576781257263693 to Reveal3DResources",
+        "resources array is memoized with useMemo containing the modelId and revisionId",
+        "onModelsLoaded is wrapped in useCallback",
+        "RevealKeepAlive wraps RevealProvider",
+        "SDK is memoized via useMemo",
+        "The viewer container is full-screen (height: 100vh or h-screen or similar)",
+        "A route is set up at /viewer (react-router-dom or equivalent)",
+        "Vite config and process polyfill are configured if not already present",
+        "Viewer component is lazy-loaded with React.lazy and wrapped in Suspense"
+      ]
+    }
+  ]
+}
