@@ -1,52 +1,33 @@
----
-name: design-layout-patterns
-description: Structures pages using approved Aura layout patterns (sidebar+content, dashboard, form, detail, settings, split-screen, three-panel, list, wizard). Use when creating or restructuring pages, deciding navigation/header/content placement, or making responsive layout decisions.
-allowed-tools: Read, Glob, Grep, Edit, Write
----
+# Building pages and layouts
 
 ## Role
-You are structuring pages for a customer-facing application. 
-Consistent layouts across apps are essential. Every page must 
-use an approved pattern.
 
-The Aura system uses Tailwind CSS for layout. All layouts 
-use Tailwind flex/grid utilities with Aura spacing tokens.
-The sidebar component uses Aura's sidebar tokens 
-(bg-sidebar, text-sidebar-foreground, etc.).
+You are structuring pages for a customer-facing application. Consistent layouts across apps are essential. Every page must use an approved pattern.
+
+The Aura system uses Tailwind CSS for layout. All layouts use Tailwind flex/grid utilities with Aura spacing tokens. The sidebar component uses Aura's sidebar tokens (bg-sidebar, text-sidebar-foreground, etc.).
 
 For all Storybook URLs, see `./storybook-links.md`.
-
-
-<when-to-reference>
-Consult this skill whenever you are:
-- Creating a new page
-- Restructuring an existing page layout
-- Deciding where to place navigation, headers, or content
-- Making responsive layout decisions
-</when-to-reference>
 
 <storybook-foundation>
 Source of truth for layout foundations:
 https://cognitedata.github.io/aura/storybook/?path=/docs/foundations-layout--docs
 
-Cross-reference these Storybook stories when implementing 
-any layout pattern:
+Cross-reference these Storybook stories when implementing any layout pattern (full URLs):
 
 | Story | URL | Use for |
 |-------|-----|---------|
-| Breakpoints | ?path=/story/foundations-layout--breakpoints | Official breakpoint values |
-| Container Queries | ?path=/story/foundations-layout--container-queries | Responsive within components |
-| Column Spans | ?path=/story/foundations-layout--column-spans | 2-col, 3-col, asymmetric splits |
-| Layout Compositions | ?path=/story/foundations-layout--compositions | Combining layout parts |
-| Sidebar Left | ?path=/story/foundations-layout--sidebar-left-layout | Sidebar implementation |
-| Card Grid | ?path=/story/foundations-layout--card-grid-layout | Card grid layout |
-| Dashboard | ?path=/story/foundations-layout--dashboard-layout | Dashboard with metrics |
-| Comprehensive Dashboard | ?path=/story/foundations-layout--comprehensive-dashboard | Full dashboard |
-| Grid Patterns | ?path=/story/foundations-layout--grid-patterns-reference | Grid configuration catalog |
-| Code Examples | ?path=/story/foundations-layout--code-examples | Copy-paste Tailwind code |
+| Breakpoints | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--breakpoints | Official breakpoint values |
+| Container Queries | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--container-queries | Responsive within components |
+| Column Spans | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--column-spans | 2-col, 3-col, asymmetric splits |
+| Layout Compositions | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--compositions | Combining layout parts |
+| Sidebar Left | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--sidebar-left-layout | Sidebar implementation |
+| Card Grid | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--card-grid-layout | Card grid layout |
+| Dashboard | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--dashboard-layout | Dashboard with metrics |
+| Comprehensive Dashboard | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--comprehensive-dashboard | Full dashboard |
+| Grid Patterns | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--grid-patterns-reference | Grid configuration catalog |
+| Code Examples | https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--code-examples | Copy-paste Tailwind code |
 
-All story URLs use the base:
-https://cognitedata.github.io/aura/storybook/
+Base: https://cognitedata.github.io/aura/storybook/
 </storybook-foundation>
 
 <foundations>
@@ -77,8 +58,7 @@ PAGE PADDING:
 </foundations>
 
 <sidebar-tokens>
-The Aura system has dedicated sidebar tokens that differ 
-from the main content area:
+The Aura system has dedicated sidebar tokens that differ from the main content area:
 
 | Token | Purpose | Light value | Dark value |
 |-------|---------|-------------|------------|
@@ -115,20 +95,19 @@ Most common for multi-page apps.
 <responsive-behavior>
 Desktop (1440px+): Sidebar 240px, content fills rest.
 Tablet (768px-1439px): Sidebar collapsible via hamburger.
-Mobile (below 768px): Sidebar hidden. Hamburger menu. 
+Mobile (below 768px): Sidebar hidden. Hamburger menu.
   Consider bottom nav for 3-5 primary sections.
 </responsive-behavior>
 
-<code-template>
-See `./templates/sidebar-content.md` for full implementation.
-Reference Storybook "Example: Sidebar Left" story.
-</code-template>
+<storybook-reference>
+Implement using Storybook **Example: Sidebar Left**:
+https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--sidebar-left-layout
+</storybook-reference>
 </pattern>
 
 <pattern name="full-width-dashboard">
 <use-when>
-Data visualizations, metrics, monitoring. Maximum 
-horizontal space needed.
+Data visualizations, metrics, monitoring. Maximum horizontal space needed.
 </use-when>
 
 <structure>
@@ -153,17 +132,16 @@ Tablet: 2-column grid. Charts stack.
 Mobile: Single column. Metrics as horizontal scroll.
 </responsive-behavior>
 
-<code-template>
-See `./templates/full-width-dashboard.md` for full implementation.
-Reference Storybook "Example: Dashboard" and 
-"Example: Comprehensive Dashboard" stories.
-</code-template>
+<storybook-reference>
+Implement using Storybook **Example: Dashboard** and **Example: Comprehensive Dashboard**:
+- https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--dashboard-layout
+- https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--comprehensive-dashboard
+</storybook-reference>
 </pattern>
 
 <pattern name="form-page">
 <use-when>
-Data entry, creation flows, configuration, settings 
-with form fields.
+Data entry, creation flows, configuration, settings with form fields.
 </use-when>
 
 <structure>
@@ -188,15 +166,15 @@ Tablet: Form fills width with px-6 padding.
 Mobile: Full width. Sticky footer stays. Fields stack.
 </responsive-behavior>
 
-<code-template>
-See `./templates/form-page.md` for full implementation.
-</code-template>
+<storybook-reference>
+Use centered content (max-w-2xl) and Tailwind patterns from Storybook **Code Examples**:
+https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--code-examples
+</storybook-reference>
 </pattern>
 
 <pattern name="detail-page">
 <use-when>
-Viewing a single record: report details, user profile, 
-item information with related data.
+Viewing a single record: report details, user profile, item information with related data.
 </use-when>
 
 <structure>
@@ -218,9 +196,11 @@ Tablet: Sidebar below main content.
 Mobile: Single column. Sidebar collapses.
 </responsive-behavior>
 
-<code-template>
-See `./templates/detail-page.md` for full implementation.
-</code-template>
+<storybook-reference>
+Use asymmetric columns from Storybook **Pattern: Column Spans** and composition patterns from **Code Examples**:
+- https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--column-spans
+- https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--code-examples
+</storybook-reference>
 </pattern>
 
 <pattern name="settings-page">
@@ -243,15 +223,15 @@ Tablet: Top tabs replacing left nav.
 Mobile: Category list → tap opens section full-screen.
 </responsive-behavior>
 
-<code-template>
-See `./templates/settings-page.md` for full implementation.
-</code-template>
+<storybook-reference>
+Implement using Storybook **Pattern: Layout Compositions**:
+https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--compositions
+</storybook-reference>
 </pattern>
 
 <pattern name="split-screen">
 <use-when>
-Comparison views, editor + preview, master-detail with 
-equal emphasis on both sides.
+Comparison views, editor + preview, master-detail with equal emphasis on both sides.
 </use-when>
 
 <structure>
@@ -266,20 +246,18 @@ equal emphasis on both sides.
 <responsive-behavior>
 Desktop: grid-cols-2, equal columns.
 Tablet: grid-cols-2 with narrower gap.
-Mobile: Stack vertically (grid-cols-1), or use Segmented Control 
-  to switch between panels.
+Mobile: Stack vertically (grid-cols-1), or use Segmented Control to switch between panels.
 </responsive-behavior>
 
-<code-template>
-See `./templates/split-screen.md` for full implementation.
-Reference Storybook "Pattern: Column Spans" story.
-</code-template>
+<storybook-reference>
+Implement using Storybook **Pattern: Column Spans**:
+https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--column-spans
+</storybook-reference>
 </pattern>
 
 <pattern name="three-panel">
 <use-when>
-Navigation + content + properties panel. IDE-style 
-layouts. Complex editing workflows with context panels.
+Navigation + content + properties panel. IDE-style layouts. Complex editing workflows with context panels.
 </use-when>
 
 <structure>
@@ -295,20 +273,18 @@ layouts. Complex editing workflows with context panels.
 <responsive-behavior>
 Desktop (1440px+): All 3 panels visible.
 Tablet (768-1439px): Hide right panel, toggle via button.
-Mobile (below 768px): Single panel with navigation as 
-  Drawer, right panel as bottom sheet or separate route.
+Mobile (below 768px): Single panel with navigation as Drawer, right panel as bottom sheet or separate route.
 </responsive-behavior>
 
-<code-template>
-See `./templates/three-panel.md` for full implementation.
-Reference Storybook "Pattern: Layout Compositions" story.
-</code-template>
+<storybook-reference>
+Implement using Storybook **Pattern: Layout Compositions**:
+https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--compositions
+</storybook-reference>
 </pattern>
 
 <pattern name="list-page">
 <use-when>
-Browsing collections — reports, users, assets, items.
-The most common page type in data-heavy applications.
+Browsing collections — reports, users, assets, items. The most common page type in data-heavy applications.
 </use-when>
 
 <structure>
@@ -330,16 +306,16 @@ Tablet: Hide non-essential columns, allow horizontal scroll.
 Mobile: Switch to card/list view with stackable filters.
 </responsive-behavior>
 
-<code-template>
-See `./templates/list-page.md` for full implementation.
-Reference Storybook "Example: Card Grid" for card variant.
-</code-template>
+<storybook-reference>
+Use Storybook **Example: Card Grid** for card-style list variants and **Grid Patterns** for table/grid configuration:
+- https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--card-grid-layout
+- https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--grid-patterns-reference
+</storybook-reference>
 </pattern>
 
 <pattern name="wizard">
 <use-when>
-Multi-step creation flows, onboarding, configuration 
-wizards, setup processes.
+Multi-step creation flows, onboarding, configuration wizards, setup processes.
 </use-when>
 
 <structure>
@@ -358,62 +334,21 @@ wizards, setup processes.
 <responsive-behavior>
 Desktop: Centered content, horizontal numbered step indicator.
 Tablet: Same layout with px-6 padding.
-Mobile: Step indicator becomes compact ("Step 2 of 4"), 
-  content fills width.
+Mobile: Step indicator becomes compact ("Step 2 of 4"), content fills width.
 </responsive-behavior>
 
-<code-template>
-See `./templates/wizard.md` for full implementation.
-</code-template>
+<storybook-reference>
+Center step content with max-w-2xl; use Storybook **Code Examples** for step and footer patterns:
+https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--code-examples
+</storybook-reference>
 </pattern>
 
 </patterns>
 
 <edge-cases>
 1. Only 1-2 pages? — Sidebar still works, or use top nav.
-2. Layout not listed? — Compose from these patterns. 
-   Flag with REVIEW if genuinely new.
+2. Layout not listed? — Compose from these patterns. Flag with REVIEW if genuinely new.
 3. Both data display and entry? — Choose by primary purpose.
-4. Need resizable panels? — Start with split-screen or 
-   three-panel, add resize handles as needed.
-5. Very wide content (data tables)? — Use full-width-dashboard 
-   without max-w constraint, or list-page with horizontal scroll.
+4. Need resizable panels? — Start with split-screen or three-panel, add resize handles as needed.
+5. Very wide content (data tables)? — Use full-width-dashboard without max-w constraint, or list-page with horizontal scroll.
 </edge-cases>
-
-<visual-checks>
-<instruction>
-For layout pattern verification, perform these visual tests at multiple viewports:
-
-**Responsive breakpoint checks:**
-1. Desktop (1440px): Verify all panels visible, proper content hierarchy
-2. Tablet (768px): Check panel collapse behavior, touch target sizing
-3. Mobile (375px): Confirm single-column flow, hamburger menu functionality
-
-**Layout-specific tests:**
-- **Sidebar layouts**: Click toggle button, verify smooth collapse/expand animation
-- **Multi-panel layouts**: Test panel resize handles, minimum/maximum widths
-- **Dashboard grids**: Verify card/widget wrapping and spacing consistency
-- **Form layouts**: Check field alignment, label positioning, button placement
-- **Navigation**: Test sticky header behavior during scroll, mobile menu overlay
-
-**Interactive element verification:**
-- Touch targets minimum 44px × 44px (tap with finger simulation)
-- Hover states on interactive elements (buttons, cards, tabs)
-- Focus indicators clearly visible with keyboard navigation
-- Scroll behaviors: sticky elements, infinite scroll, horizontal scroll areas
-
-**Content flow verification:**
-- Text content readable without horizontal scrolling
-- Images and media scale appropriately across viewports
-- Empty states and error states display correctly in the layout
-- Loading states don't break layout structure
-</instruction>
-
-<focus-areas>
-Priority visual checks for layout patterns:
-1. **Panel collapse** — Essential for three-panel and sidebar patterns
-2. **Responsive behavior** — Layout should gracefully adapt at breakpoints  
-3. **Touch target sizing** — Critical for mobile usability
-4. **Content hierarchy** — Visual prominence matches information architecture
-</focus-areas>
-</visual-checks>

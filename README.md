@@ -30,14 +30,8 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **performance** | Optimizes Dune apps for speed, render counts, and bundle size |
 | **security** | Reviews for security issues — credentials, user input, external data |
 | **setup-dune-auth** | Migrates React apps to Dune auth or adds DuneAuthProvider |
-| **design-aura-tokens** | Enforces semantic Aura design tokens via Tailwind |
-| **design-aura-components** | Guides Aura component selection, implements migrations, prevents custom rebuilds |
-| **design-accessibility** | Page-level accessibility — keyboard nav, ARIA, focus management |
-| **design-content-guidelines** | UX writing standards, text patterns, voice and tone |
-| **design-error-validation** | Form validation, loading states, error handling patterns |
-| **design-layout-patterns** | Approved page layouts with responsive specs |
+| **design** | Aura UI — components and tokens, layouts, UX copy, forms/async feedback, accessibility (`skills/design/`) |
 | **design-review** | Scores app against 10 Aura design criteria with fix suggestions |
-| **use-aura-design-system** | *(Deprecated — merged into **design-aura-components**)* |
 
 ## Contributing
 
@@ -51,7 +45,7 @@ allowed-tools: Read, Glob, Grep, Edit, Write
 ---
 ```
 
-Design skills use the `design-` prefix convention (e.g., `skills/design-my-skill/SKILL.md`, name: `design-my-skill`).
+Consolidated Aura guidance uses the **`design`** skill (`skills/design/SKILL.md`). Older per-topic `design-*` skills were merged into that folder.
 
 **Authoring style**: Use `## Section` markdown headings for structural sections like Role, When to use, and Setup. XML tags (e.g., `<rubric>`, `<example>`) are acceptable where they serve a machine-parsing purpose.
 

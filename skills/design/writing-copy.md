@@ -1,37 +1,52 @@
----
-name: design-content-guidelines
-description: Creates clear, user-centered interface copy following UX writing best practices. Use when writing buttons, labels, errors, empty states, headings, form fields, notifications, confirmations, tooltips, or any user-facing text. Includes voice/tone framework, accessibility guidelines, and research-backed benchmarks.
-allowed-tools: Read, Glob, Grep, Edit, Write
----
+# Writing copy
 
 ## Role
-You are writing interface copy for Cognite customer-facing applications.
-Every piece of UX text must be purposeful, concise, conversational, and clear.
-Always identify the target audience persona before writing — the persona
-determines reading level, technical vocabulary, and tone.
-See `references/cognite-audience.md` for all Cognite personas.
 
-For code-level accessibility (keyboard nav, ARIA, focus), see **design-accessibility** skill.
+You are writing interface copy for Cognite customer-facing applications. Every piece of UX text must be purposeful, concise, conversational, and clear. Always identify the target audience persona before writing — the persona determines reading level, technical vocabulary, and tone.
 
+For code-level accessibility (keyboard navigation, ARIA, focus, headings, live regions), see `handling-states.md`.
 
-<when-to-reference>
-Consult this skill whenever you are:
-- Writing or editing any user-facing text
-- Creating buttons, labels, titles, messages, or form fields
-- Writing error messages, success messages, or empty states
-- Designing notifications, tooltips, or confirmation dialogs
-- Designing onboarding experiences
-- Auditing content for consistency and usability
-</when-to-reference>
+## Cognite audience personas
 
-<file-routing>
-Load these files based on the task:
-- **Always**: `references/cognite-audience.md` — identify target persona before writing
-- **Error messages**: `templates/error-message-template.md`
-- **Empty states**: `templates/empty-state-template.md`
-- **Onboarding flows**: `templates/onboarding-flow-template.md`
-- **Translation, high-stress copy, or testing readability**: `references/accessibility-guidelines.md`
-</file-routing>
+Canonical definitions live in the cogdocs repository (`cogdocs/cogdocs-metadata.mdx`, **Audience** section), which is not available in this repo. Refer to your project's cogdocs for full persona descriptions.
+
+This summary is optimized for microcopy decisions: choose vocabulary, tone, and reading level based on the target audience.
+
+### Personas by technical level
+
+| Persona | Technical level | UX copy implication |
+| -------- | ---------------- | ------------------- |
+| `businessUser` | Low | Plain language; outcomes and benefits over features; domain terms OK, avoid platform jargon. |
+| `businessDecisionMaker` | Low | Plain language; ROI, business value, strategic impact; minimal technical detail. |
+| `appMaker` | Mid | Plain to mid; configuration, automation, outcomes; avoid deep code/API detail. |
+| `dataAnalyst` | Mid | Plain to mid; analytics, insights, dashboards; data terms OK, keep explanations clear. |
+| `partner` | Mid–high | Precise; integration, co-development; balance technical accuracy with clarity. |
+| `administrator` | High | Technical terms OK; reliability, security, compliance, access; be precise. |
+| `dataEngineer` | High | Technical terms OK; pipelines, ingestion, transformation; precise data vocabulary. |
+| `developer` | High | Technical terms OK; APIs, SDKs, integrations; precise and concise. |
+| `aiEngineer` | High | Technical terms OK; ML/AI, models, automation; precise technical language. |
+| `dataScientist` | High | Technical terms OK; experiments, models, analytics; precise and accurate. |
+| `securityEngineer` | High | Technical terms OK; IAM, threats, compliance; security-focused wording. |
+| `solutionArchitect` | High | Technical terms OK; integration, strategy, best practices; precise. |
+| `internal` | Varies | Can use internal/Cognite jargon; procedures and tools; match internal conventions. |
+
+### Quick reference for reading level
+
+- **Low technical:** 7th–8th grade; plain language; lead with outcomes.
+- **Mid technical:** 9th–10th grade; clarify technical terms when used.
+- **High technical:** 10th–11th grade; precise terminology; avoid oversimplifying.
+
+When the primary audience is unknown, default to plain language and outcomes; add technical precision only when the context clearly targets a technical persona.
+
+### Personas at a glance (writing approach)
+
+| Technical level | Personas | Writing approach |
+|---|---|---|
+| Low | `businessUser`, `businessDecisionMaker` | Plain language, lead with outcomes and benefits, avoid platform jargon |
+| Mid | `appMaker`, `dataAnalyst`, `partner` | Domain terms OK, keep explanations clear |
+| High | `developer`, `dataEngineer`, `administrator`, `aiEngineer`, `dataScientist` | Technical terms OK, be precise and concise |
+
+When the persona is unknown, default to plain language and outcomes.
 
 <formatting-rules>
 CASING — The single most common mistake in Cognite UI copy.
@@ -47,22 +62,6 @@ ALL interface text uses sentence case. No exceptions.
 Only proper nouns and product names are capitalised:
 Cognite Data Fusion, CDF, OPC-UA, Aura — not "pipeline", "asset", "dashboard", "integration"
 </formatting-rules>
-
-
-## Cognite Audience
-
-Always check the target persona first. Persona determines reading level and vocabulary.
-
-| Technical level | Personas | Writing approach |
-|---|---|---|
-| Low | `businessUser`, `businessDecisionMaker` | Plain language, lead with outcomes and benefits, avoid platform jargon |
-| Mid | `appMaker`, `dataAnalyst`, `partner` | Domain terms OK, keep explanations clear |
-| High | `developer`, `dataEngineer`, `administrator`, `aiEngineer`, `dataScientist` | Technical terms OK, be precise and concise |
-
-When the persona is unknown, default to plain language and outcomes.
-
-See `references/cognite-audience.md` for full persona descriptions.
-
 
 ## Core UX Writing Principles
 
@@ -99,7 +98,6 @@ Every piece of UX text should meet all four standards:
 - Use second-person ("you") language
 - Match user's language and mental models
 
-
 ## UX Text Patterns
 
 ### Titles
@@ -122,7 +120,6 @@ Every piece of UX text should meet all four standards:
   - "Ingestion failed. Check your extractor configuration and try again."
   - "Couldn't save changes. Connection lost. Reconnect and retry."
 - **Avoid**: Blame language, technical codes without explanation, dead ends
-- For detailed types and templates → `templates/error-message-template.md`
 
 ### Success Messages
 - **Purpose**: Confirm action completion
@@ -135,7 +132,6 @@ Every piece of UX text should meet all four standards:
 - **Types**: First-use, user-cleared, no results
 - **Format**: Explanation + CTA to populate
 - **Example**: "No assets yet. Connect a data source to start exploring."
-- For detailed types and templates → `templates/empty-state-template.md`
 
 ### Form Fields
 - **Labels**: Clear noun phrases describing the input ("Time series ID", "Email address")
@@ -169,7 +165,6 @@ Every piece of UX text should meet all four standards:
 - **Secondary CTA**: Always provide a clear exit ("Cancel")
 - **Avoid**: Vague openers like "Are you sure?", manipulative phrasing
 
-
 ## Voice and Tone
 
 ### Voice (Consistent Brand Personality)
@@ -194,10 +189,9 @@ Tone adapts to the user's emotional state while voice stays constant.
 | **Cautious** | High-stakes actions | Serious, transparent | "Delete pipeline? All history will be removed." |
 | **Successful** | Completions | Positive, proportional | "Pipeline configured. Ingestion starts shortly." |
 
-
 ## How to Write
 
-1. **Identify the audience** — Read `references/cognite-audience.md`. Set reading level and vocabulary based on the persona.
+1. **Identify the audience** — Use the persona tables above. Set reading level and vocabulary based on the persona.
 2. **Understand context** — What is the user doing? What emotional state are they in? What are the stakes?
 3. **Draft** — Start with what you'd say conversationally. Apply the appropriate pattern. Front-load key information.
 4. **Edit — four passes**:
@@ -209,10 +203,7 @@ Tone adapts to the user's emotional state while voice stays constant.
    - 9–10: Excellent · 7–8: Good · 5–6: Needs work · below 5: Rewrite
    - **Example**: "An error occurred while processing your request." → Purposeful: 4/10, Concise: 6/10, Conversational: 5/10, Clear: 5/10 → **Improved**: "We couldn't process your request. Check your connection and try again."
 
-
 ## Accessibility in UX Writing
-
-For translation guidance, high-stress copy, and testing tools, see `references/accessibility-guidelines.md`.
 
 ### Screen Reader Optimization
 - Label all interactive elements explicitly ("Submit form" not just "Submit")
@@ -236,6 +227,7 @@ For translation guidance, high-stress copy, and testing tools, see `references/a
 - Define technical terms when first used (unless writing for technical personas)
 - Avoid idioms and cultural references
 
+Translation, text expansion in localized UIs, and accessibility testing tools are summarized in `handling-states.md`.
 
 ## UX Text Benchmarks
 
@@ -254,7 +246,6 @@ For translation guidance, high-stress copy, and testing tools, see `references/a
 - Mid technical: 9th–10th grade
 - High technical: 10th–11th grade
 
-
 ## Common Mistakes to Avoid
 
 - Generic button labels ("Submit", "OK", "Yes")
@@ -267,7 +258,6 @@ For translation guidance, high-stress copy, and testing tools, see `references/a
 - Relying on color alone for meaning
 - Inaccessible link text ("Click here", "Read more")
 - Tooltips that just repeat the label
-
 
 ## Quick Reference
 
