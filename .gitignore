@@ -1,2 +1,5 @@
 # Cursor working files
 .cursor/plans/
+
+# macOS system files
+.DS_Store
