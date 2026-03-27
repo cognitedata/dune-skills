@@ -209,7 +209,9 @@ Examples:
 
 ## Multi-Screen Flow Example
 
-### Screen 1: Welcome
+### Consumer / SaaS app (WriteRight)
+
+**Screen 1: Welcome**
 ```
 **Welcome to WriteRight**
 
@@ -222,7 +224,7 @@ Write better, faster with AI-powered editing.
 [Get started]
 ```
 
-### Screen 2: Setup
+**Screen 2: Setup**
 ```
 **What brings you to WriteRight?** (2 of 4)
 
@@ -235,7 +237,7 @@ Select all that apply:
 [Continue] [Skip]
 ```
 
-### Screen 3: First Action
+**Screen 3: First Action**
 ```
 **Try it out** (3 of 4)
 
@@ -246,13 +248,69 @@ Paste any text below and watch WriteRight improve it.
 [Analyze my writing] [Skip]
 ```
 
-### Screen 4: Success
+**Screen 4: Success**
 ```
 **Nice work!**
 
 You improved your first piece of writing. Ready to write your next masterpiece?
 
 [Start writing] [See tips]
+```
+
+---
+
+### Data platform / Cognite app (Integration setup)
+
+**Screen 1: Welcome**
+```
+**Connect your industrial data**
+
+Bring your OT and IT data into Cognite Data Fusion.
+
+• Ingest data from any source
+• Monitor assets in real time
+• Build on a unified data layer
+
+[Set up your first integration]
+[Explore the data model]
+```
+
+**Screen 2: Choose source**
+```
+**Select a data source** (1 of 3)
+
+What type of data are you connecting?
+
+○ OPC-UA server
+○ PI System
+○ SQL database
+○ REST API
+○ File upload
+
+[Continue] [I'll do this later]
+```
+
+**Screen 3: Configure**
+```
+**Configure your extractor** (2 of 3)
+
+Enter the connection details for your OPC-UA server.
+
+Server URL
+Namespace URI
+Authentication (optional)
+
+[Test connection] [Back]
+```
+
+**Screen 4: Success**
+```
+**Integration connected**
+
+Your OPC-UA server is sending data to CDF. You can monitor
+ingestion status from the Integrations dashboard.
+
+[View ingestion status] [Set up another source]
 ```
 
 ## Common Mistakes to Avoid
