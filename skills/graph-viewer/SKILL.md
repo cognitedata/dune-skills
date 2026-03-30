@@ -1,5 +1,5 @@
 ---
-name: graph-viewer-lite
+name: graph-viewer
 description: Integrates the lightweight CDF graph viewer component via useGraphViewer hook. Use when embedding a graph visualization, adding a knowledge graph, showing CDF data model relationships, displaying nodes and edges from Cognite Data Fusion, or extracting/componentizing a reusable hook from a larger codebase.
 ---
 
