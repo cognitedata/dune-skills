@@ -31,7 +31,6 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **security** | Reviews for security issues — credentials, user input, external data |
 | **setup-dune-auth** | Migrates React apps to Dune auth or adds DuneAuthProvider |
 | **design** | Aura UI — components and tokens, layouts, UX copy, forms/async feedback, accessibility (`skills/design/`) |
-| **design-review** | Scores app against 10 Aura design criteria with fix suggestions |
 
 ## Contributing
 

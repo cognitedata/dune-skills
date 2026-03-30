@@ -20,8 +20,8 @@ Consult this skill whenever you are:
 - Creating or restructuring pages and responsive layouts
 - Writing or editing any user-facing text
 - Building forms, handling API responses, async actions, confirmations, or dynamic content
-- Implementing or reviewing accessibility (keyboard, focus, headings, ARIA, alt text)
-- Reviewing Aura usage in a Dune or React app
+- Implementing accessibility (keyboard, focus, headings, ARIA, alt text)
+- Applying Aura correctly in a Dune or React app
 
 </when-to-reference>
 

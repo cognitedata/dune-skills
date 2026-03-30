@@ -347,7 +347,7 @@ https://cognitedata.github.io/aura/storybook/?path=/story/foundations-layout--co
 
 <edge-cases>
 1. Only 1-2 pages? — Sidebar still works, or use top nav.
-2. Layout not listed? — Compose from these patterns. Flag with REVIEW if genuinely new.
+2. Layout not listed? — Compose from these patterns. Add a short code comment if the composition is genuinely new.
 3. Both data display and entry? — Choose by primary purpose.
 4. Need resizable panels? — Start with split-screen or three-panel, add resize handles as needed.
 5. Very wide content (data tables)? — Use full-width-dashboard without max-w constraint, or list-page with horizontal scroll.

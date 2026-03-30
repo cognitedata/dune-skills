@@ -506,7 +506,7 @@ See `writing-copy.md` for copy patterns.
 
 <rule name="approved-layouts-only">
 <instruction>
-Every page must use an approved layout pattern. Do not invent new page layouts without design review. See `building-pages.md`.
+Every page must use an approved layout pattern. Use only the patterns documented in `building-pages.md`; extend them by composition rather than inventing new structures.
 </instruction>
 </rule>
 
@@ -516,7 +516,7 @@ Every page must use an approved layout pattern. Do not invent new page layouts w
 1. Need something not in the list?
    — Check if it can be composed from existing components.
    — If genuinely new, build with Aura tokens and flag:
-   {/* REVIEW: No Aura component for [need]. Custom build. */}
+   {/* NOTE: No Aura component for [need]. Custom build. */}
 
 2. Component almost fits but not quite?
    — Check Storybook for all variants and props first.
@@ -537,7 +537,7 @@ Every page must use an approved layout pattern. Do not invent new page layouts w
 5. Need a color with no semantic token?
    — Check decorative tokens first.
    — For charts, use chart-* tokens.
-   — Raw ramp values only as last resort, with REVIEW comment.
+   — Raw ramp values only as last resort, with a short code comment explaining why.
 
 6. Need Tailwind's default colors (gray-500, blue-600)?
    — Almost always wrong. Map to Aura equivalent.
@@ -548,6 +548,6 @@ Every page must use an approved layout pattern. Do not invent new page layouts w
      every token with its purpose and visual example.
 
 Flag anything unresolvable:
-{/* REVIEW: No Aura token for [need].
+{/* NOTE: No Aura token for [need].
     Using [temporary approach]. */}
 </edge-cases>
