@@ -1,14 +1,14 @@
 ---
 name: performance
-description: "MUST be used whenever optimizing a Dune app for speed, reducing render counts, improving CDF query efficiency, or reducing bundle size. Do NOT skip measurement steps — always profile before changing code. Triggers: performance, slow, laggy, optimize, optimization, re-render, bundle size, load time, Lighthouse, profiler, virtualization, lazy load, code split, CDF query, large list, memory leak."
+description: "MUST be used whenever fixing performance issues in a Dune app. This skill finds AND fixes performance problems — re-renders, inefficient queries, missing pagination, unbounded fetches, large bundles, and memory leaks. It does not just report them. Always measure before and after. Triggers: performance, slow, laggy, optimize, re-render, bundle size, load time, CDF query, large list, memory leak, debounce, virtualize, lazy load, code split."
 allowed-tools: Read, Glob, Grep, Shell, Write
 metadata:
   argument-hint: "[file, component, or area to optimize — e.g. 'src/components/AssetTable.tsx']"
 ---
 
-# Performance Optimization
+# Performance Fix
 
-Systematically identify and fix performance issues in **$ARGUMENTS** (or the whole app if no argument is given). Always measure first — never optimize blindly.
+Systematically find and fix performance issues in **$ARGUMENTS** (or the whole app if no argument is given). Always measure first — never optimize blindly.
 
 ---
 
@@ -26,57 +26,58 @@ Open the app in Chrome and capture:
 - **React Profiler** (React DevTools → Profiler → Record an interaction)
   - Note the components with the longest render times and highest render counts
 
-Record baseline numbers. Every optimization must be measured against these.
+Record baseline numbers. Every fix must be measured against these.
 
 ---
 
-## Step 2 — Identify unnecessary re-renders
+## Step 2 — Find and fix unnecessary re-renders
 
-Read the component tree (start from `src/App.tsx`) and look for these patterns:
+Read the component tree (start from `src/App.tsx`) and search for these patterns:
 
-**Inline object/array/function creation in JSX:**
+```bash
+grep -rn --include="*.tsx" \
+  -E "value=\{\{|onClick=\{\(\)" src/
+```
+
+For each instance found, **apply the fix directly**:
+
+**Inline object/array creation in JSX → wrap with `useMemo`:**
 ```tsx
 // BAD — new object on every render causes children to re-render
 <Chart options={{ color: "red" }} />
 
-// GOOD
+// FIX — wrap with useMemo
 const chartOptions = useMemo(() => ({ color: "red" }), []);
 <Chart options={chartOptions} />
 ```
 
-**Event handlers recreated on every render:**
+**Event handlers recreated on every render → wrap with `useCallback`:**
 ```tsx
 // BAD
 <Button onClick={() => doSomething(id)} />
 
-// GOOD
+// FIX — wrap with useCallback
 const handleClick = useCallback(() => doSomething(id), [id]);
 <Button onClick={handleClick} />
 ```
 
-**Context that changes on every render:**
+**Context that changes on every render → memoize the context value:**
 ```tsx
 // BAD — new object reference every render
 <MyContext.Provider value={{ user, sdk }}>
 
-// GOOD — memoize the context value
+// FIX — memoize the context value
 const ctxValue = useMemo(() => ({ user, sdk }), [user, sdk]);
 <MyContext.Provider value={ctxValue}>
-```
-
-Search for common culprits:
-```bash
-grep -rn --include="*.tsx" \
-  -E "value=\{\{|onClick=\{\(\)" src/
 ```
 
 Apply `React.memo` to pure presentational components that receive stable props. Do NOT wrap every component — only those confirmed to re-render unnecessarily via the Profiler.
 
 ---
 
-## Step 3 — Use the lightest DMS API for each read path
+## Step 3 — Find and fix DMS query patterns
 
-For **read-heavy** workloads, prefer APIs that hit the **search/Elasticsearch path** (`query` or `search` on instances) rather than `list` paths that stress **Postgres**. Reserve heavier endpoints for writes or semantics only available on those endpoints.
+For **read-heavy** workloads, prefer APIs that hit the **search/Elasticsearch path** (`query` or `search` on instances) rather than `list` paths that stress **Postgres**.
 
 ```bash
 # Find all DMS instance API calls
@@ -86,23 +87,45 @@ grep -rn --include="*.ts" --include="*.tsx" -E "instances\.(list|search|query|ag
 grep -rn --include="*.ts" --include="*.tsx" -E "\.(assets|timeseries|events|files|sequences|relationships)\.(list|search|retrieve)" src/
 ```
 
-For each call, evaluate:
+For each `instances.list` call in a read-heavy path (e.g. populating a table, dropdown, or search results), **rewrite it to use `instances.query`** with the equivalent filter. Preserve the existing filter logic but express it in the query API format:
 
-| API used | When it's correct | When to flag |
-|----------|-------------------|-------------|
+```ts
+// BAD — instances.list hits Postgres, expensive for read-heavy UI
+const result = await client.instances.list({
+  instanceType: "node",
+  filter: { equals: { property: ["node", "space"], value: "my-space" } },
+  limit: 100,
+});
+
+// FIX — rewrite to instances.query which hits Elasticsearch
+const result = await client.instances.query({
+  with: {
+    nodes: {
+      nodes: {
+        filter: { equals: { property: ["node", "space"], value: "my-space" } },
+      },
+      limit: 100,
+    },
+  },
+  select: {
+    nodes: {},
+  },
+});
+```
+
+| API used | When it's correct | When to rewrite |
+|----------|-------------------|-----------------|
 | `instances.query` | Read with filters that map to Elasticsearch (text, equals, range) | — |
 | `instances.search` | Full-text or fuzzy search | — |
-| `instances.list` | Writing, syncing, or need for semantics not available on query/search | Flag if used for read-heavy UI display when query/search would work |
+| `instances.list` | Writing, syncing, or need for semantics not available on query/search | Rewrite to `instances.query` if used for read-heavy UI display |
 | `instances.retrieve` | Fetching by known external IDs | — |
 | `instances.aggregate` | Counts, histograms | — |
-
-Flag any `instances.list` call in a read-heavy path (e.g. populating a table, dropdown, or search results) where `instances.query` or `instances.search` would be more efficient. The goal is to push read work to Elasticsearch, not Postgres.
 
 For deeper rationale on search vs relational paths, cardinality, and materialization tradeoffs, consult the `semantic-knowledge/` directory if available in the workspace.
 
 ---
 
-## Step 4 — Ensure server-side filtering; avoid bulk fetch-and-filter
+## Step 4 — Find and fix client-side filtering (move to server-side)
 
 Filters, limits, and projections must be applied **in the API request** — not by downloading large result sets and filtering in the browser.
 
@@ -114,52 +137,47 @@ grep -rn --include="*.ts" --include="*.tsx" -B 5 "\.filter(" src/ | grep -B 5 "d
 grep -rn --include="*.ts" --include="*.tsx" -E "\.(map|reduce|find|some|every)\(" src/hooks/ src/services/ src/api/
 ```
 
-For each data fetch → client filter pattern:
+For each client-side filter pattern, **move the filter logic into the SDK call's `filter` parameter and remove the `.filter()` call**:
+
+```ts
+// BAD — fetches all nodes then filters client-side
+const result = await client.instances.query({ ... });
+const activeNodes = result.items.nodes.filter(n => n.properties.status === "active");
+
+// FIX — move filter into the API request, remove client-side .filter()
+const result = await client.instances.query({
+  with: {
+    nodes: {
+      nodes: {
+        filter: {
+          and: [
+            existingFilters,
+            { equals: { property: ["mySpace", "myView/v1", "status"], value: "active" } },
+          ],
+        },
+      },
+      limit: 100,
+    },
+  },
+  select: { nodes: {} },
+});
+const activeNodes = result.items.nodes; // no client-side filter needed
+```
 
 | Issue | Fix |
 |-------|-----|
-| `.filter()` after SDK call on full result set | Move the filter into the API request's `filter` parameter |
+| `.filter()` after SDK call on full result set | Move the filter into the API request's `filter` parameter and delete the `.filter()` |
 | No `properties` selection in DMS query | Add a `sources` or `properties` parameter to fetch only needed fields |
-| Fetching all items then rendering a subset | Use the API's `limit` and `filter` to fetch only what's displayed |
-| Client-side text search on fetched array | Use the SDK's `search` endpoint instead |
+| Fetching all items then rendering a subset | Add `limit` and `filter` to the API call to fetch only what's displayed |
+| Client-side text search on fetched array | Replace with the SDK's `search` endpoint |
 
-**Hard rule:** If the API supports a filter for the criterion being applied client-side, it **must** be moved server-side. Client-side filtering is acceptable only for trivial local state (e.g. filtering a cached list of 10 user preferences).
+**Hard rule:** If the API supports a filter for the criterion being applied client-side, **move it server-side now**. Client-side filtering is acceptable only for trivial local state (e.g. filtering a cached list of 10 user preferences). If the API does not support the exact filter, add a code comment explaining why client-side filtering is necessary.
 
 ---
 
-## Step 5 — Optimize CDF data fetching
+## Step 5 — Find and fix CDF data fetching and pagination
 
 Read all CDF SDK calls (search for `sdk.`, `client.`, `useQuery`, `useCogniteClient`).
-
-For each call, check:
-
-| Issue | Fix |
-|-------|-----|
-| No `limit` set | Add `limit: 100` (or the actual page size needed) |
-| Fetching all properties | Add a `properties` filter to select only required fields |
-| Fetching on every render | Move inside `useQuery`/`useMemo` with a stable dependency array |
-| Sequential requests that could be parallel | Use `Promise.all` or batched SDK methods |
-| Polling without debounce | Add debounce (300–500 ms) for search inputs before firing CDF queries |
-| Missing `limit` parameter | Add explicit `limit` matching the UI's page size (e.g. 25, 50, 100) |
-| Offset-based pagination for large datasets | Switch to cursor-based pagination (`cursors` or `nextCursor`) |
-| Aggressive prefetch of next pages | Only prefetch the next page, not multiple pages ahead |
-| "Fetch all" loop (exhausts cursors up front) | Paginate on demand — fetch the next page only when the user scrolls or clicks "next" |
-
-Example — scoped instance query:
-```ts
-// BAD — fetches everything
-const result = await client.instances.list({ instanceType: "node" });
-
-// GOOD — scoped and limited
-const result = await client.instances.list({
-  instanceType: "node",
-  sources: [{ source: { type: "view", space: "my-space", externalId: "Asset", version: "v1" } }],
-  filter: { equals: { property: ["node", "space"], value: "my-space" } },
-  limit: 100,
-});
-```
-
-### Pagination check
 
 ```bash
 # Find pagination patterns
@@ -169,16 +187,54 @@ grep -rn --include="*.ts" --include="*.tsx" -E "(nextCursor|cursor|hasNextPage|f
 grep -rn --include="*.ts" --include="*.tsx" -B 3 -A 3 "while.*cursor\|while.*hasMore\|while.*nextPage" src/
 ```
 
-Flag:
-- Any loop that fetches all pages up front (exhausts cursors before rendering)
-- Missing `limit` on SDK calls (defaults are often too high)
-- Prefetch of more than one page ahead without user intent
+For each call, find the issue and **apply the fix**:
+
+| Issue | Fix to apply |
+|-------|-------------|
+| No `limit` set | **Add `limit: 100`** (or the actual page size needed) to the SDK call |
+| Fetching all properties | **Add a `properties` filter** to select only required fields |
+| Fetching on every render | **Move inside `useQuery`/`useMemo`** with a stable dependency array |
+| Sequential requests that could be parallel | **Rewrite to `Promise.all`** or batched SDK methods |
+| Missing `limit` parameter | **Add explicit `limit`** matching the UI's page size (e.g. 25, 50, 100) |
+| Offset-based pagination for large datasets | **Replace with cursor-based pagination** using `nextCursor` from the response |
+| "Fetch all" loop (exhausts cursors up front) | **Replace with on-demand pagination** using TanStack Query's `useInfiniteQuery` |
+
+**Fixing fetch-all loops** — replace the while loop with `useInfiniteQuery`:
+
+```ts
+// BAD — fetches ALL pages before rendering
+let allItems = [];
+let cursor = undefined;
+while (true) {
+  const result = await client.instances.list({ limit: 1000, cursor });
+  allItems.push(...result.items);
+  if (!result.nextCursor) break;
+  cursor = result.nextCursor;
+}
+
+// FIX — paginate on demand with useInfiniteQuery
+const { data, fetchNextPage, hasNextPage } = useInfiniteQuery({
+  queryKey: ["instances", filters],
+  queryFn: ({ pageParam }) =>
+    client.instances.list({ limit: 100, cursor: pageParam, ...filters }),
+  getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  staleTime: 30_000,
+});
+```
+
+**Fixing offset-based pagination** — switch to cursor-based:
+
+```ts
+// BAD — offset pagination degrades at scale
+const result = await client.instances.list({ limit: 100, offset: page * 100 });
+
+// FIX — cursor-based pagination
+const result = await client.instances.list({ limit: 100, cursor: nextCursor });
+```
 
 ---
 
-## Step 6 — Control rate of API calls
-
-Verify the app does not hammer CDF or DMS with excessive, redundant, or poorly-timed requests.
+## Step 6 — Find and fix excessive API call rates
 
 ```bash
 # Find search/filter inputs that trigger queries
@@ -194,31 +250,93 @@ grep -rn --include="*.ts" --include="*.tsx" -E "setInterval|refetchInterval|poll
 grep -rn --include="*.ts" --include="*.tsx" -E "staleTime|cacheTime|gcTime|refetchOnMount|refetchOnWindowFocus" src/
 ```
 
-| Issue | Fix |
-|-------|-----|
-| Search input fires query on every keystroke | Add debounce (300–500 ms) before triggering the API call |
-| Polling with no backoff or very short interval | Use a reasonable interval (≥30s) with exponential backoff on errors |
-| Re-fetching on every render (no caching) | Use TanStack Query with appropriate `staleTime` and `gcTime` |
-| `refetchOnWindowFocus: true` for expensive queries | Disable or use a longer stale time |
-| Duplicate parallel identical requests | Deduplicate with TanStack Query's built-in deduplication or a request cache |
-| Multiple components triggering the same fetch | Lift the query to a shared hook or context |
+For each issue found, **apply the fix**:
 
-**Key principle:** Request rate should be proportional to user intent. A user typing a search query should generate one API call (after debounce), not one per character. A table that is already loaded should not re-fetch when the user switches tabs and returns.
+**Search inputs that fire on every keystroke → add debounce with 300ms delay:**
+```tsx
+// BAD — fires API call on every keystroke
+const [search, setSearch] = useState("");
+const { data } = useQuery({ queryKey: ["search", search], queryFn: () => api.search(search) });
+
+// FIX — create or use a useDebouncedValue hook with 300ms delay
+function useDebouncedValue<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
+const [search, setSearch] = useState("");
+const debouncedSearch = useDebouncedValue(search, 300);
+const { data } = useQuery({
+  queryKey: ["search", debouncedSearch],
+  queryFn: () => api.search(debouncedSearch),
+  enabled: debouncedSearch.length > 0,
+});
+```
+
+**useQuery calls without staleTime → add appropriate staleTime:**
+```ts
+// BAD — refetches on every mount/focus
+useQuery({ queryKey: ["data"], queryFn: fetchData });
+
+// FIX — add staleTime to prevent unnecessary refetches
+useQuery({ queryKey: ["data"], queryFn: fetchData, staleTime: 30_000 });
+```
+
+**Duplicate parallel identical requests → lift the query to a shared hook:**
+```ts
+// BAD — multiple components each call the same query independently
+// ComponentA.tsx: useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
+// ComponentB.tsx: useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
+
+// FIX — create a shared hook, import it from both components
+// hooks/useAssets.ts
+export function useAssets() {
+  return useQuery({ queryKey: ["assets"], queryFn: fetchAssets, staleTime: 30_000 });
+}
+```
+
+| Issue | Fix to apply |
+|-------|-------------|
+| Search input fires query on every keystroke | **Add `useDebouncedValue` hook** with 300ms delay |
+| Polling with no backoff or very short interval | **Set interval to ≥30s** with exponential backoff on errors |
+| Re-fetching on every render (no caching) | **Add `staleTime: 30_000`** (or appropriate) to useQuery options |
+| `refetchOnWindowFocus: true` for expensive queries | **Set `refetchOnWindowFocus: false`** or use a longer stale time |
+| Duplicate parallel identical requests | **Lift the query to a shared hook** and import from both components |
+| Multiple components triggering the same fetch | **Extract to a shared hook** in `hooks/` directory |
 
 ---
 
-## Step 7 — Virtualize large lists
+## Step 7 — Find and fix large un-virtualized lists
 
 Search for lists that render more than ~50 items:
 ```bash
 grep -rn --include="*.tsx" -E "\.(map|forEach)\(" src/
 ```
 
-For any list where the data source could exceed 50 items, replace the plain `.map()` render with a virtualized list. Use `@tanstack/react-virtual` (already a Dune ecosystem dependency):
+For any list where the data source could exceed 50 items, **replace the plain `.map()` render with a virtualized list**. Install `@tanstack/react-virtual` if not present:
+
+```bash
+pnpm add @tanstack/react-virtual
+```
+
+**Apply the virtualizer pattern directly:**
 
 ```tsx
+// BAD — renders all items in the DOM
+<div>
+  {items.map((item) => (
+    <div key={item.id}>{item.name}</div>
+  ))}
+</div>
+
+// FIX — replace with virtualized list
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+const parentRef = useRef<HTMLDivElement>(null);
 const rowVirtualizer = useVirtualizer({
   count: items.length,
   getScrollElement: () => parentRef.current,
@@ -227,11 +345,18 @@ const rowVirtualizer = useVirtualizer({
 
 return (
   <div ref={parentRef} style={{ height: "600px", overflow: "auto" }}>
-    <div style={{ height: rowVirtualizer.getTotalSize() }}>
+    <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
       {rowVirtualizer.getVirtualItems().map((virtualRow) => (
         <div
           key={virtualRow.key}
-          style={{ transform: `translateY(${virtualRow.start}px)` }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: `${virtualRow.size}px`,
+            transform: `translateY(${virtualRow.start}px)`,
+          }}
         >
           {items[virtualRow.index].name}
         </div>
@@ -243,29 +368,31 @@ return (
 
 ---
 
-## Step 8 — Code-split heavy pages and components
+## Step 8 — Find and fix missing code splitting
 
-Any page or modal that is not needed on the initial load should be lazy-loaded. Read the router setup and identify routes that are imported statically but not shown on the landing page.
+Read the router setup and identify routes that are imported statically but not shown on the landing page.
+
+**For each statically imported heavy page, convert to lazy import with `React.lazy()` and `Suspense`:**
 
 ```tsx
-// BEFORE
+// BAD — statically imported, loaded in initial bundle
 import { ReportPage } from "./pages/ReportPage";
 
-// AFTER
+// FIX — convert to lazy import
 import { lazy, Suspense } from "react";
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 
-// In the route:
+// In the route — wrap with Suspense
 <Suspense fallback={<PageSkeleton />}>
   <ReportPage />
 </Suspense>
 ```
 
-Similarly, large third-party components (chart libraries, PDF viewers, map renderers) should be dynamically imported inside the component that needs them, not at the module level.
+Similarly, large third-party components (chart libraries, PDF viewers, map renderers) should be dynamically imported inside the component that needs them, not at the module level. **Apply the transformation directly** to each heavy import found.
 
 ---
 
-## Step 9 — Analyse and reduce bundle size
+## Step 9 — Analyse and fix bundle size
 
 ```bash
 # Install if not already present, then run
@@ -284,18 +411,45 @@ export default defineConfig({
 });
 ```
 
-Run `pnpm run build` and inspect the treemap. Flag any chunk > 100 KB (gzipped) that is not a necessary initial dependency.
+Run `pnpm run build` and inspect the treemap. For any chunk > 100 KB (gzipped) that is not a necessary initial dependency, **apply the fix**:
 
-Common wins:
-- Replace `lodash` with individual `lodash-es` imports or native equivalents
-- Replace `moment` with `date-fns` or native `Intl`
-- Ensure chart libraries (e.g., ECharts, Recharts) are tree-shaken correctly
+| Issue | Fix to apply |
+|-------|-------------|
+| `lodash` (full bundle) | **Replace with `lodash-es`** individual imports or native equivalents (e.g., `Array.prototype.map`, `Object.entries`, `structuredClone`) |
+| `moment` | **Replace with `date-fns`** or native `Intl.DateTimeFormat` |
+| Chart libraries not tree-shaken | **Switch to named imports** (e.g., `import { LineChart } from "echarts/charts"`) |
+| Large library used in one place | **Dynamically import it** with `React.lazy` or inline `import()` |
 
-Revert the visualizer plugin after analysis.
+```ts
+// BAD
+import _ from "lodash";
+const sorted = _.sortBy(items, "name");
+
+// FIX — use lodash-es or native
+import sortBy from "lodash-es/sortBy";
+const sorted = sortBy(items, "name");
+// OR native:
+const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name));
+```
+
+```ts
+// BAD
+import moment from "moment";
+const formatted = moment(date).format("YYYY-MM-DD");
+
+// FIX — use date-fns
+import { format } from "date-fns";
+const formatted = format(date, "yyyy-MM-dd");
+```
+
+**After analysis, remove the visualizer plugin** from `vite.config.ts` and uninstall it:
+```bash
+pnpm remove rollup-plugin-visualizer
+```
 
 ---
 
-## Step 10 — Fix memory leaks
+## Step 10 — Find and fix memory leaks
 
 Search for `useEffect` hooks that set up subscriptions, timers, or event listeners without cleanup:
 
@@ -303,21 +457,56 @@ Search for `useEffect` hooks that set up subscriptions, timers, or event listene
 grep -rn --include="*.tsx" --include="*.ts" -A 10 "useEffect" src/
 ```
 
-Every `useEffect` that calls `addEventListener`, `setInterval`, `setTimeout`, `subscribe`, or sets up a CDF streaming connection must return a cleanup function:
+For every `useEffect` that calls `addEventListener`, `setInterval`, `setTimeout`, `subscribe`, or sets up a CDF streaming connection, **add the missing cleanup function**:
 
+**Fetch without abort → add AbortController:**
 ```ts
+// BAD — no cleanup, fetch continues after unmount
+useEffect(() => {
+  fetchData(id);
+}, [id]);
+
+// FIX — add AbortController for cleanup
 useEffect(() => {
   const controller = new AbortController();
-  fetchData(controller.signal);
+  fetchData(id, controller.signal);
   return () => controller.abort();
 }, [id]);
 ```
 
+**Timer without cleanup → add clearInterval/clearTimeout:**
+```ts
+// BAD — interval keeps running after unmount
+useEffect(() => {
+  const id = setInterval(() => poll(), 5000);
+}, []);
+
+// FIX — add clearInterval cleanup
+useEffect(() => {
+  const id = setInterval(() => poll(), 5000);
+  return () => clearInterval(id);
+}, []);
+```
+
+**Event listener without cleanup → add removeEventListener:**
+```ts
+// BAD — listener accumulates on each render
+useEffect(() => {
+  window.addEventListener("resize", handleResize);
+}, []);
+
+// FIX — add removeEventListener cleanup
+useEffect(() => {
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
+```
+
 ---
 
-## Step 11 — Measure after and report
+## Step 11 — Measure after and report the delta
 
-Re-run the same Lighthouse audit and React Profiler session from Step 1. Report the delta:
+Re-run the same Lighthouse audit and React Profiler session from Step 1. Report the delta and list every file changed:
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
@@ -333,4 +522,4 @@ If a step produced no improvement, state that explicitly. Do not fabricate numbe
 
 ## Done
 
-List every change made with the file path and a one-line explanation. If further gains require server-side or infrastructure changes (e.g., CDF response caching, CDN configuration), note them separately as out-of-scope recommendations.
+List every file changed with the absolute path and a one-line explanation of what was fixed. If further gains require server-side or infrastructure changes (e.g., CDF response caching, CDN configuration), note them separately as out-of-scope recommendations.
