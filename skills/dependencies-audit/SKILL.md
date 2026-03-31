@@ -1,14 +1,14 @@
 ---
 name: dependencies-audit
-description: "MUST be used whenever auditing dependencies for a Dune app, checking for vulnerabilities, outdated packages, or supply-chain risks. Do NOT skip any step — run the full audit when the user asks for a dependency review, package audit, security scan, CVE check, or supply-chain review. Triggers: dependencies, packages, dependency audit, package audit, npm audit, pnpm audit, CVE, vulnerability, outdated, deprecated, supply chain, license, bundle size, node_modules."
+description: "MUST be used whenever fixing dependency issues in a Dune app. This skill finds AND fixes vulnerabilities, outdated packages, deprecated dependencies, and license issues — it does not just report them. Triggers: dependencies, packages, fix dependencies, update packages, fix vulnerabilities, npm audit fix, pnpm audit fix, CVE fix, outdated, deprecated, supply chain, license."
 allowed-tools: Read, Glob, Grep, Shell, Write
 metadata:
   argument-hint: "[path to package.json, or leave blank to audit the root package.json]"
 ---
 
-# Dependencies Audit
+# Dependencies Fix
 
-Audit all dependencies in **$ARGUMENTS** (or the root `package.json` if no argument is given) for health, security, and maintainability. This skill produces the `review-packages.md` artifact required by the Dune app review process.
+Find and fix all dependency issues in **$ARGUMENTS** (or the root `package.json` if no argument is given) — vulnerabilities, outdated packages, deprecated dependencies, license problems, and supply-chain risks. This skill produces the `review-packages.md` artifact required by the Dune app review process.
 
 ---
 
@@ -29,7 +29,7 @@ Record the total count of dependencies and devDependencies.
 
 ---
 
-## Step 2 — Look up npm metadata for each package
+## Step 2 — Look up npm metadata and update outdated packages
 
 For each package, gather:
 - **Latest version** on npm
@@ -78,9 +78,25 @@ node -e "
 "
 ```
 
+### Fix: Update outdated packages
+
+For each package that is >1 major version behind, update it:
+
+```bash
+pnpm update <package>@latest
+```
+
+For packages that are 1+ minor versions behind, update to latest minor:
+
+```bash
+pnpm update <package>
+```
+
+After updating, run `pnpm install` and `pnpm run build` to verify nothing breaks. If a major update breaks the build, revert that specific update and note it as a manual-fix item.
+
 ---
 
-## Step 3 — Run security audit
+## Step 3 — Run security audit and fix vulnerabilities
 
 ```bash
 # Run audit with the project's package manager
@@ -96,9 +112,25 @@ Parse the JSON output for:
 
 Any package with a known CVE is an automatic **Fail** in the health column.
 
+### Fix: Resolve vulnerabilities
+
+Run `pnpm audit fix` to auto-fix what's possible. For remaining high/critical CVEs that can't be auto-fixed, manually update the vulnerable package in `package.json` to the patched version and run `pnpm install`. If the patched version has breaking changes, apply the minimum code changes needed to adapt. If a vulnerability is in a transitive dependency, use `pnpm overrides` in `package.json` to force the patched version:
+
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "vulnerable-package": ">=2.1.0"
+    }
+  }
+}
+```
+
+After applying fixes, re-run `pnpm audit` to confirm the vulnerabilities are resolved. Run `pnpm run build` to verify nothing breaks.
+
 ---
 
-## Step 4 — Assign health scores
+## Step 4 — Assign health scores and fix Fail-scored packages
 
 For each package, assign a health indicator:
 
@@ -113,9 +145,19 @@ Edge cases:
 - `@types/*` packages: trust DefinitelyTyped packages; focus on whether the version matches the main package
 - Newly published packages (<6 months old): flag as **Warn** for review, not auto-Fail on low downloads
 
+### Fix: Replace Fail-scored packages
+
+For each Fail-scored package:
+
+- **If deprecated:** find and install the recommended replacement. Update all imports across the codebase.
+- **If unmaintained (2+ years):** find an actively maintained alternative with equivalent functionality. Replace it.
+- **If low downloads and not `@cognite/*`:** evaluate whether it's truly needed. If a native JS/TS equivalent exists or the functionality is simple, remove the dependency and implement inline.
+
+After each replacement, run `pnpm install` and `pnpm run build` to verify the replacement works.
+
 ---
 
-## Step 5 — Check for supply-chain risks
+## Step 5 — Check for supply-chain risks and mitigate
 
 ```bash
 # Check for install scripts (preinstall, postinstall, prepare)
@@ -140,11 +182,15 @@ node -e "
 # This is informational, not blocking
 ```
 
-Flag any dependency with install scripts for manual review. Install scripts can execute arbitrary code during `npm install`.
+### Fix: Evaluate and mitigate install script risks
+
+For each dependency with install scripts, determine if the script is legitimate (e.g., native module compilation for `sharp`, `esbuild`, `better-sqlite3`). Known build tools and native module packages are expected to have install scripts.
+
+If the package is not a known build tool and has suspicious install scripts, replace it with a safer alternative. After replacement, run `pnpm install` and `pnpm run build` to verify.
 
 ---
 
-## Step 6 — Check license compatibility
+## Step 6 — Check license compatibility and replace problematic packages
 
 ```bash
 # List all licenses
@@ -169,13 +215,19 @@ Licenses that need legal review:
 - GPL-2.0, GPL-3.0, LGPL-2.1, LGPL-3.0, AGPL-3.0, MPL-2.0, EUPL-1.1
 - Any "UNKNOWN" or missing license
 
-Flag any copyleft or unknown license as **Warn** or **Fail** depending on the license type.
+### Fix: Replace packages with problematic licenses
+
+For each package with a copyleft license (GPL, AGPL) or unknown license in **production dependencies**, find an MIT/Apache-2.0 licensed alternative and replace it. Update all imports across the codebase.
+
+For **devDependencies** with copyleft licenses, these are lower risk but still flag for awareness.
+
+After each replacement, run `pnpm install` and `pnpm run build` to verify.
 
 ---
 
-## Step 7 — Generate the review-packages.md artifact
+## Step 7 — Generate the review-packages.md artifact (post-fix state)
 
-Produce the output in the format required by the Dune app review process:
+Re-run the metadata lookups after all fixes have been applied to capture the post-fix state. Then produce the output in the format required by the Dune app review process:
 
 ```markdown
 ## Package audit: [app name]
@@ -224,38 +276,31 @@ Produce the output in the format required by the Dune app review process:
 
 ---
 
-## Step 8 — Report summary
+## Step 8 — Report remaining issues
 
-Summarize findings:
+Summarize what was fixed and what remains:
 
-| Category | Count |
-|----------|-------|
-| Total dependencies | N |
-| Total devDependencies | N |
-| Health: Pass | N |
-| Health: Warn | N |
-| Health: Fail | N |
-| CVEs (critical + high) | N |
-| CVEs (moderate + low) | N |
-| License concerns | N |
-| Install script flags | N |
+### Fixed
 
-List **must fix** items first:
-- Any dependency with a critical or high CVE
-- Any deprecated dependency in production (not devDependencies)
-- Any dependency with a copyleft license that hasn't been approved
+| Category | Count | Details |
+|----------|-------|---------|
+| Packages updated | N | list of packages and version changes |
+| CVEs resolved | N | list of CVEs fixed |
+| Deprecated deps replaced | N | old package -> new package |
+| License issues resolved | N | old package -> new package |
 
-Then **should fix**:
-- Outdated packages (>1 major version behind)
-- Packages with <10k weekly downloads
-- Packages not updated in >2 years
+### Remaining (could not auto-fix)
 
-Then **nice to fix**:
-- Minor version bumps
-- Switching to lighter alternatives
+List only issues that could not be automatically fixed:
+- Breaking changes from major updates that need manual code adaptation
+- Licenses that need legal review (e.g., LGPL in transitive dependencies)
+- Packages with no maintained alternative available
+- Vulnerabilities with no patched version available yet
+
+For each remaining item, explain why it could not be auto-fixed and what the app author needs to do.
 
 ---
 
 ## Done
 
-State the overall health verdict: how many Pass/Warn/Fail, whether there are blocking CVEs, and the recommended next steps for the app author.
+State the overall health verdict: how many Pass/Warn/Fail after fixes, how many issues were resolved, and any remaining items that need manual attention from the app author.
