@@ -26,6 +26,7 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **code-quality** | Reviews Dune apps for code quality, maintainability, and clean code issues |
 | **correctness-and-error-handling** | Reviews for bugs, missing error states, unhandled rejections, and edge cases |
 | **dm-limits-and-best-practices** | CDF Data Modeling API best practices — concurrency, pagination, batching |
+| **dune-app-review** | Runs the official Dune app platform review flow against a local app workspace and writes artifacts under `reviews/dune-app-review/feedback-round-N/` |
 | **integrate-file-viewer** | Integrates CogniteFileViewer to preview CDF files (PDFs, images, text) |
 | **performance** | Optimizes Dune apps for speed, render counts, and bundle size |
 | **security** | Reviews for security issues — credentials, user input, external data |
