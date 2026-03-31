@@ -5,8 +5,9 @@ description: >-
   following the cognitedata/dune-app-reviews scoring criteria. Produces three
   artifacts: review-files.md (per-file inventory), review-packages.md (dependency
   audit), and review-report.md (scored report with must/should/nice-fix items).
-  Use when the user asks for a Dune app review, code quality audit, CDF platform
-  review, or "run dune-review" on a codebase.
+  Use when the user asks for a Dune app review, pre-submit review, approval
+  review, app certification review, code quality audit, CDF platform review, or
+  "run dune-review" on a codebase before submission.
 allowed-tools: Read, Glob, Grep, Shell, Write
 ---
 
