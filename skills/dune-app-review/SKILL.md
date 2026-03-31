@@ -23,7 +23,8 @@ Adapt it for a **local developer review**:
 - Treat the **current workspace** as the app under review.
 - Skip all ticket, PR, overview, submodule, and `reviews/<TICKET-ID>/...` setup steps.
 - If the upstream command asks for Jira ticket or PR input, ignore that requirement and continue with the local codebase.
-- Write the three artifacts to the **project root**: `review-files.md`, `review-packages.md`, and `review-report.md`.
+- Use `reviews/dune-app-review/feedback-round-<N>/` as the artifact directory for local reviews.
+- If no local feedback round exists yet, use `reviews/dune-app-review/feedback-round-1/`. For reruns, increment the round number.
 
 After the review artifacts are written, fetch the official verification command and follow it too:
 
@@ -34,5 +35,5 @@ gh api repos/cognitedata/dune-app-reviews/contents/.claude/commands/dune-review-
 
 Adapt verification the same way:
 - Skip ticket and feedback-round lookup.
-- Read the three root artifacts instead of `reviews/<TICKET-ID>/feedback-round-N/`.
+- Read the three artifacts from `reviews/dune-app-review/feedback-round-<N>/` instead of `reviews/<TICKET-ID>/feedback-round-N/`.
 - Verify the review against the local source code before declaring it complete.
