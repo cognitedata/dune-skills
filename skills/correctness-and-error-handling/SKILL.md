@@ -25,6 +25,25 @@ For each async data source, note:
 - What does the UI show while loading?
 - What does the UI show if the result is empty?
 
+### Check for known defects in critical paths
+
+Before proceeding to the detailed checks below, scan for markers of unresolved issues in hooks, services, and API call sites:
+
+```bash
+# Find TODO/FIXME/HACK in critical code paths (not test files)
+grep -rn --include="*.ts" --include="*.tsx" -E "(TODO|FIXME|HACK|XXX):" src/ | grep -v ".test." | grep -v ".spec."
+
+# Find "fix" or "broken" or "workaround" markers
+grep -rn --include="*.ts" --include="*.tsx" -i -E "(TODO.*fix|workaround|broken|known.?bug|temporary.?hack)" src/
+```
+
+For each match:
+- Is it in a critical path (data fetching, rendering, auth, navigation)?
+- Does it indicate a silent failure, data corruption risk, or incorrect behavior?
+- Is there an associated test that verifies the workaround or guards against the known issue?
+
+Flag any `TODO: fix` or `FIXME` in critical paths as a **known defect** that must be resolved or explicitly scoped out with a safe failure mode.
+
 ---
 
 ## Step 2 — Verify top-level error boundaries
@@ -240,7 +259,76 @@ execute: async (args) => {
 
 ---
 
-## Step 9 — Report findings
+## Step 9 — Verify 429 / rate-limit backoff with jitter
+
+When CDF or any external API returns **429 Too Many Requests** (or similar rate-limit signals), the app must back off gracefully — not hammer the service with immediate retries.
+
+### Search for existing retry logic
+
+```bash
+# Find retry/backoff patterns
+grep -rn --include="*.ts" --include="*.tsx" -i -E "(retry|backoff|retryAfter|retry.after|429|rate.limit|throttle)" src/
+
+# Find raw fetch/axios interceptors that might handle retries
+grep -rn --include="*.ts" --include="*.tsx" -E "interceptors\.(response|request)\.use" src/
+```
+
+### What to check
+
+For each CDF SDK call site or API call:
+
+| Check | Requirement |
+|-------|-------------|
+| Backoff strategy | **Exponential backoff with jitter** — not fixed-interval retries |
+| `Retry-After` header | Respected when present in the 429 response |
+| Retry cap | Bounded maximum attempts (e.g. 3–5 retries) — never infinite |
+| User feedback | UI shows a loading/degraded state during retries — not silent |
+| Synchronized retries | Jitter prevents multiple components from retrying at the exact same moment (thundering herd) |
+
+### Reference implementation
+
+If no retry logic exists for CDF calls, recommend this pattern:
+
+```typescript
+async function fetchWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: unknown) {
+      if (
+        attempt === maxRetries ||
+        !(error instanceof Error) ||
+        !('status' in error && (error as any).status === 429)
+      ) {
+        throw error;
+      }
+
+      // Exponential backoff with jitter
+      const baseDelay = Math.pow(2, attempt) * 1000;
+      const jitter = Math.random() * 1000;
+      await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
+    }
+  }
+  throw new Error('Unreachable');
+}
+```
+
+### Severity guide
+
+| Pattern found | Severity |
+|--------------|----------|
+| No retry logic at all for CDF calls | MEDIUM — add backoff wrapper |
+| Fixed-interval retries (e.g. retry every 1s) | MEDIUM — add exponential backoff + jitter |
+| Immediate tight retries on 429 | HIGH — thundering herd risk |
+| Infinite or unbounded retries | HIGH — can overwhelm shared quotas |
+| Backoff exists but no jitter | LOW — add jitter to prevent synchronized retries |
+
+---
+
+## Step 10 — Report findings
 
 Produce a structured report:
 
