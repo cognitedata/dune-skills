@@ -1,102 +1,142 @@
 ---
 name: performance
-description: "MUST be used whenever optimizing a Dune app for speed, reducing render counts, improving CDF query efficiency, or reducing bundle size. Do NOT skip measurement steps — always profile before changing code. Triggers: performance, slow, laggy, optimize, optimization, re-render, bundle size, load time, Lighthouse, profiler, virtualization, lazy load, code split, CDF query, large list, memory leak."
-allowed-tools: Read, Glob, Grep, Shell, Write
-metadata:
-  argument-hint: "[file, component, or area to optimize — e.g. 'src/components/AssetTable.tsx']"
+description: Optimize a Dune app for speed, rendering efficiency, CDF query performance, and bundle size. Use this skill whenever the user mentions slow load times, lag, excessive re-renders, large bundles, slow CDF queries, long lists, virtualization, code splitting, or React Profiler results — even if they just say "it feels slow" without naming a specific cause.
 ---
 
 # Performance Optimization
 
-Systematically identify and fix performance issues in **$ARGUMENTS** (or the whole app if no argument is given). Always measure first — never optimize blindly.
+Systematically identify and fix performance issues in **$ARGUMENTS** (or the whole
+app if no argument is given).
+
+## Why This Matters
+
+Performance issues compound — a 200ms CDF query plus an unnecessary re-render plus
+an unvirtualized list adds up to a UI that feels broken. Users don't diagnose which
+layer is slow; they just leave. Dune apps are especially susceptible because CDF
+responses can be large, deeply nested, and slow on first load. A methodical approach
+(measure → identify → fix → re-measure) prevents wasted effort on optimizations
+that don't move the needle.
 
 ---
 
-## Step 1 — Measure baseline before touching anything
+## Step 1 — Establish a Baseline
 
-Run the production build and capture metrics before making any changes:
+Before changing any code, capture current performance numbers so every optimization
+can be measured against them.
+
+**What the agent can do:**
 
 ```bash
-pnpm run build
-pnpm run preview
+pnpm run build 2>&1
 ```
 
-Open the app in Chrome and capture:
-- **Lighthouse score** (Performance tab → Run audit)
-- **React Profiler** (React DevTools → Profiler → Record an interaction)
-  - Note the components with the longest render times and highest render counts
+Note the build time and output chunk sizes from the build log. If there's a
+`rollup-plugin-visualizer` already configured, inspect the generated treemap.
 
-Record baseline numbers. Every optimization must be measured against these.
+**Ask the user to do:**
+
+Tell the user: "Before I start making changes, it helps to have baseline numbers.
+Can you open the app in Chrome and capture a Lighthouse Performance score and a
+React Profiler recording of the slow interaction? I'll use those to prioritize
+what to fix first."
+
+If the user provides profiler data or specific complaints (e.g., "the asset table
+takes 3 seconds to filter"), use that to focus the review. If they don't have
+profiler data, proceed with static analysis — the code patterns below reliably
+correlate with performance problems.
 
 ---
 
-## Step 2 — Identify unnecessary re-renders
+## Step 2 — Identify Unnecessary Re-renders
 
-Read the component tree (start from `src/App.tsx`) and look for these patterns:
+Re-renders are the most common performance issue in React apps. A component that
+re-renders when its output hasn't changed wastes CPU and can cascade to its entire
+subtree.
 
-**Inline object/array/function creation in JSX:**
+Read the component tree starting from `src/App.tsx` and search for these patterns:
+
+**Inline object/array/function creation in JSX** — creates a new reference on every
+render, which breaks shallow equality checks and forces child components to
+re-render even when the data hasn't changed:
+
 ```tsx
-// BAD — new object on every render causes children to re-render
+// Problem: new object every render → Chart re-renders every time
 <Chart options={{ color: "red" }} />
 
-// GOOD
+// Fix: stable reference
 const chartOptions = useMemo(() => ({ color: "red" }), []);
 <Chart options={chartOptions} />
 ```
 
 **Event handlers recreated on every render:**
+
 ```tsx
-// BAD
+// Problem: new function reference every render
 <Button onClick={() => doSomething(id)} />
 
-// GOOD
+// Fix: stable callback
 const handleClick = useCallback(() => doSomething(id), [id]);
 <Button onClick={handleClick} />
 ```
 
-**Context that changes on every render:**
+**Context providers with unstable values** — every consumer re-renders when the
+context value's reference changes, even if the actual data is the same:
+
 ```tsx
-// BAD — new object reference every render
+// Problem: new object reference every render → all consumers re-render
 <MyContext.Provider value={{ user, sdk }}>
 
-// GOOD — memoize the context value
+// Fix: memoize the value
 const ctxValue = useMemo(() => ({ user, sdk }), [user, sdk]);
 <MyContext.Provider value={ctxValue}>
 ```
 
-Search for common culprits:
+Search for these patterns:
+
 ```bash
-grep -rn --include="*.tsx" \
-  -E "value=\{\{|onClick=\{\(\)" src/
+rg -n "value=\{\{|onClick=\{\(\)" --type ts src/
 ```
 
-Apply `React.memo` to pure presentational components that receive stable props. Do NOT wrap every component — only those confirmed to re-render unnecessarily via the Profiler.
+Apply `React.memo` only to components confirmed to re-render unnecessarily — wrapping
+everything in `memo` adds overhead from the shallow comparison and can mask real bugs
+where props *should* trigger a re-render.
 
 ---
 
-## Step 3 — Optimize CDF data fetching
+## Step 3 — Optimize CDF Data Fetching
 
-Read all CDF SDK calls (search for `sdk.`, `client.`, `useQuery`, `useCogniteClient`).
+CDF queries are often the single largest contributor to perceived slowness. A query
+that fetches too much data or runs too often dominates the user experience far more
+than any rendering optimization.
+
+Search for CDF SDK calls:
+
+```bash
+rg -n "sdk\.|client\.|useQuery|useCogniteClient" --type ts src/
+```
 
 For each call, check:
 
-| Issue | Fix |
-|-------|-----|
-| No `limit` set | Add `limit: 100` (or the actual page size needed) |
-| Fetching all properties | Add a `properties` filter to select only required fields |
-| Fetching on every render | Move inside `useQuery`/`useMemo` with a stable dependency array |
-| Sequential requests that could be parallel | Use `Promise.all` or batched SDK methods |
-| Polling without debounce | Add debounce (300–500 ms) for search inputs before firing CDF queries |
+| Issue | Why it matters | Fix |
+|-------|---------------|-----|
+| No `limit` set | CDF returns up to 1000 items by default — far more than most UIs need | Add `limit: 100` or the actual page size |
+| Fetching all properties | CDF instances can have dozens of properties per item | Add a `sources`/`properties` filter for only the fields you display |
+| Fetching on every render | Missing dependency array or unstable deps re-trigger the query constantly | Move into `useQuery` with a stable `queryKey` |
+| Sequential requests that could be parallel | Two independent fetches that wait for each other double the wall-clock time | Use `Promise.all` or `useQueries` |
+| Search input without debounce | Every keystroke fires a CDF query, most of which are discarded | Add 300–500ms debounce before firing the query |
 
-Example — scoped instance query:
+**Example** — scoped instance query:
+
 ```ts
-// BAD — fetches everything
+// Problem: fetches everything
 const result = await client.instances.list({ instanceType: "node" });
 
-// GOOD — scoped and limited
+// Fix: scoped, limited, and filtered
 const result = await client.instances.list({
   instanceType: "node",
-  sources: [{ source: { type: "view", space: "my-space", externalId: "Asset", version: "v1" } }],
+  sources: [{
+    source: { type: "view", space: "my-space", externalId: "Asset", version: "v1" },
+  }],
   filter: { equals: { property: ["node", "space"], value: "my-space" } },
   limit: 100,
 });
@@ -104,14 +144,18 @@ const result = await client.instances.list({
 
 ---
 
-## Step 4 — Virtualize large lists
+## Step 4 — Virtualize Large Lists
 
-Search for lists that render more than ~50 items:
+Rendering hundreds of DOM nodes for a long list forces the browser to layout and
+paint elements the user can't see. This causes visible jank on scroll and slow
+initial renders.
+
 ```bash
-grep -rn --include="*.tsx" -E "\.(map|forEach)\(" src/
+rg -n "\.(map|forEach)\(" --type ts src/
 ```
 
-For any list where the data source could exceed 50 items, replace the plain `.map()` render with a virtualized list. Use `@tanstack/react-virtual` (already a Dune ecosystem dependency):
+For any list where the data source could exceed ~50 items, replace the plain
+`.map()` render with a virtualized list. Use `@tanstack/react-virtual`:
 
 ```tsx
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -140,15 +184,19 @@ return (
 
 ---
 
-## Step 5 — Code-split heavy pages and components
+## Step 5 — Code-Split Heavy Pages and Components
 
-Any page or modal that is not needed on the initial load should be lazy-loaded. Read the router setup and identify routes that are imported statically but not shown on the landing page.
+Any page or modal not needed on initial load should be lazy-loaded. This directly
+reduces the JavaScript the browser must parse before the app becomes interactive.
+
+Read the router setup and identify routes that are statically imported but not
+shown on the landing page:
 
 ```tsx
-// BEFORE
+// Before: imported at module level, included in initial bundle
 import { ReportPage } from "./pages/ReportPage";
 
-// AFTER
+// After: loaded on demand when the user navigates to this route
 import { lazy, Suspense } from "react";
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 
@@ -158,19 +206,28 @@ const ReportPage = lazy(() => import("./pages/ReportPage"));
 </Suspense>
 ```
 
-Similarly, large third-party components (chart libraries, PDF viewers, map renderers) should be dynamically imported inside the component that needs them, not at the module level.
+Also check for large third-party imports (chart libraries, PDF viewers, map
+renderers) that are imported at the module level but only used inside a specific
+component. Move these to dynamic imports inside the component that needs them.
 
 ---
 
-## Step 6 — Analyse and reduce bundle size
+## Step 6 — Analyse and Reduce Bundle Size
+
+Run a production build and inspect what's in the bundle:
 
 ```bash
-# Install if not already present, then run
+pnpm run build 2>&1
+```
+
+If the app uses Vite, temporarily add the visualizer to see a treemap:
+
+```bash
 pnpm add -D rollup-plugin-visualizer
 ```
 
-Add to `vite.config.ts` temporarily:
 ```ts
+// vite.config.ts — add temporarily, revert after analysis
 import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig({
@@ -181,53 +238,115 @@ export default defineConfig({
 });
 ```
 
-Run `pnpm run build` and inspect the treemap. Flag any chunk > 100 KB (gzipped) that is not a necessary initial dependency.
+Run `pnpm run build` and inspect the treemap. Flag any chunk over 100 KB gzipped
+that isn't a core dependency.
 
 Common wins:
-- Replace `lodash` with individual `lodash-es` imports or native equivalents
-- Replace `moment` with `date-fns` or native `Intl`
-- Ensure chart libraries (e.g., ECharts, Recharts) are tree-shaken correctly
+
+| Bloated dependency | Replacement |
+|-------------------|-------------|
+| `lodash` (full import) | Individual `lodash-es/` imports or native equivalents |
+| `moment` | `date-fns` or native `Intl.DateTimeFormat` |
+| Full chart library imported | Tree-shaken named imports (e.g., ECharts `use([...])`) |
 
 Revert the visualizer plugin after analysis.
 
 ---
 
-## Step 7 — Fix memory leaks
+## Step 7 — Check for Memory Leaks
 
-Search for `useEffect` hooks that set up subscriptions, timers, or event listeners without cleanup:
+Memory leaks cause the app to slow down over time as the user navigates between
+views. The most common source is `useEffect` hooks that set up subscriptions or
+async work without returning a cleanup function.
 
 ```bash
-grep -rn --include="*.tsx" --include="*.ts" -A 10 "useEffect" src/
+rg -n "useEffect" --type ts -A 10 src/
 ```
 
-Every `useEffect` that calls `addEventListener`, `setInterval`, `setTimeout`, `subscribe`, or sets up a CDF streaming connection must return a cleanup function:
+For each `useEffect`, verify:
 
-```ts
-useEffect(() => {
-  const controller = new AbortController();
-  fetchData(controller.signal);
-  return () => controller.abort();
-}, [id]);
+- `addEventListener` has a matching `removeEventListener`
+- `setInterval` / `setTimeout` has a matching `clearInterval` / `clearTimeout`
+- Async fetches use an `AbortController` that is aborted in the cleanup
+- Store subscriptions call the returned unsubscribe function
+
+Also search for event listeners attached outside of React:
+
+```bash
+rg -n "addEventListener" --type ts src/
 ```
+
+If any are attached at module level or in a non-React utility, verify they're
+removed when no longer needed.
 
 ---
 
-## Step 8 — Measure after and report
+## Step 8 — Measure After and Report
 
-Re-run the same Lighthouse audit and React Profiler session from Step 1. Report the delta:
+Use this exact template for the report:
 
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| Lighthouse Performance | 72 | 91 | +19 |
-| Largest Contentful Paint | 3.2 s | 1.8 s | −1.4 s |
-| Total Blocking Time | 420 ms | 80 ms | −340 ms |
-| Bundle size (gzipped) | 410 KB | 290 KB | −120 KB |
-| `AssetTable` render count (on filter change) | 8 | 2 | −6 |
+### Performance Review — [App/Component Name]
 
-If a step produced no improvement, state that explicitly. Do not fabricate numbers.
+**Summary**: [1-2 sentence overview of what was found and the highest-impact fix]
+
+**Baseline** (captured before changes):
+
+| Metric | Value |
+|--------|-------|
+| Build time | |
+| Bundle size (gzipped) | |
+| Lighthouse Performance (if provided) | |
+| Specific metric from user complaint | |
+
+**Changes made:**
+
+| # | File | Change | Expected Impact |
+|---|------|--------|-----------------|
+| 1 | `path/to/file` | What was changed | Why it helps |
+| 2 | `path/to/file` | What was changed | Why it helps |
+
+**After** (measured post-changes):
+
+| Metric | Before | After | Delta |
+|--------|--------|-------|-------|
+| Build time | | | |
+| Bundle size (gzipped) | | | |
+
+### Steps with no issues found
+- [List any steps where no issues were found]
+
+If a metric couldn't be measured (e.g., the user didn't provide Lighthouse data),
+state that explicitly rather than guessing.
+
+After presenting the report, ask the user to re-run Lighthouse and the React
+Profiler to confirm the improvements.
 
 ---
 
-## Done
+## Gotchas
 
-List every change made with the file path and a one-line explanation. If further gains require server-side or infrastructure changes (e.g., CDF response caching, CDN configuration), note them separately as out-of-scope recommendations.
+1. **Don't optimize without measuring.** A `useMemo` on a cheap computation adds
+   overhead from the dependency comparison. The profiler tells you where time is
+   actually spent — optimize those spots, not everything that looks suboptimal.
+
+2. **`React.memo` is not free.** It adds a shallow comparison on every render. For
+   components that always receive new props (e.g., children from a parent that
+   re-renders with new data), `memo` makes things slower, not faster.
+
+3. **Virtualization changes accessibility.** Screen readers may not be able to
+   navigate all items in a virtualized list. If the list needs to be accessible,
+   add `aria-rowcount` and `aria-rowindex` attributes.
+
+4. **Code splitting adds loading states.** Every `lazy()` boundary needs a
+   `Suspense` fallback. If the fallback is jarring (e.g., a spinner replacing
+   a fully-rendered page), the perceived performance can feel worse even though
+   the initial load is faster.
+
+5. **CDF query limits interact with pagination.** Setting `limit: 100` doesn't
+   help if the component then makes 10 sequential cursor-based requests to fetch
+   all 1000 items. If you need all the data, paginate in the UI instead.
+
+6. **Tree-shaking requires ESM imports.** `import _ from "lodash"` pulls in the
+   entire library. `import groupBy from "lodash-es/groupBy"` allows the bundler
+   to tree-shake the rest. Check that imports use the `-es` variant or named
+   imports from an ESM-compatible package.
