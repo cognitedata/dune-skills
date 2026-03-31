@@ -28,7 +28,49 @@ Identify:
 
 ---
 
-## Step 2 — Credential & secret hygiene
+## Step 2 — Verify all CDF access goes through the Cognite SDK
+
+All traffic to **Cognite Data Fusion (CDF)** must go through the **official Cognite SDK**. Flag **any** HTTP, WebSocket, or other network call to CDF-like hosts or APIs that **bypasses** the SDK.
+
+### Search for raw HTTP calls
+
+```bash
+# Find fetch, axios, XMLHttpRequest, and other HTTP client usage
+grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
+  -E "(fetch\(|axios\.|axios\(|XMLHttpRequest|\.ajax\(|http\.get\(|http\.post\(|request\()" src/
+
+# Find raw URL construction that looks like CDF endpoints
+grep -rn --include="*.ts" --include="*.tsx" \
+  -E "(cognitedata\.com|cognite\.ai|/api/v1/projects|cdf\.|\.cognite\.)" src/
+
+# Find custom Authorization or api-key headers
+grep -rn --include="*.ts" --include="*.tsx" \
+  -E "(Authorization|api-key|apikey|x-api-key)" src/ | grep -v "node_modules"
+```
+
+### What to flag
+
+| Pattern | Verdict |
+|---------|---------|
+| `fetch()` or `axios` call to a CDF URL (`*.cognitedata.com`, `/api/v1/projects/*`) | **BLOCK** — must use Cognite SDK |
+| Custom `Authorization` header with a CDF token | **BLOCK** — SDK handles auth |
+| `fetch()` to a non-CDF URL (static assets, documented third-party API) | **OK** — but must be explicit and documented |
+| WebSocket connection to CDF endpoints | **BLOCK** — use SDK streaming methods |
+| Proxy endpoint that forwards to CDF internally | **WARN** — verify the proxy itself uses the SDK |
+
+### What is acceptable
+
+- All CDF reads/writes through `sdk.assets.*`, `sdk.timeseries.*`, `client.instances.*`, etc.
+- Non-CDF network calls that are:
+  - To known static asset hosts (CDNs, image services)
+  - To documented third-party APIs required by the product
+  - Explicitly noted in the app's README or architecture docs
+
+Every non-SDK network call must be **justified**. If you find a `fetch()` or `axios` call, read the URL and determine whether it targets CDF. If it does, it must be migrated to the SDK.
+
+---
+
+## Step 3 — Credential & secret hygiene
 
 Search for hard-coded credentials and sensitive values:
 
@@ -47,7 +89,7 @@ Also verify:
 
 ---
 
-## Step 3 — Dangerous DOM APIs
+## Step 4 — Dangerous DOM APIs
 
 Search for patterns that allow arbitrary script execution or HTML injection:
 
@@ -63,7 +105,7 @@ For each hit:
 
 ---
 
-## Step 4 — Authentication & authorization
+## Step 5 — Authentication & authorization
 
 Read the auth setup (likely `src/contexts/`, `src/hooks/`, or `setup-dune-auth` output):
 
@@ -77,7 +119,7 @@ Check the `useAtlasChat` / Atlas agent integration:
 
 ---
 
-## Step 5 — Input validation
+## Step 6 — Input validation
 
 Every value that comes from a form, URL param, or query string before it reaches a CDF call or is rendered to the DOM must be validated:
 
@@ -93,7 +135,7 @@ For each hit, verify:
 
 ---
 
-## Step 6 — Vite / server configuration
+## Step 7 — Vite / server configuration
 
 Read `vite.config.ts` and any `server.ts` / `express.ts` files:
 
@@ -106,7 +148,7 @@ Read `vite.config.ts` and any `server.ts` / `express.ts` files:
 
 ---
 
-## Step 7 — Dependency audit
+## Step 8 — Dependency audit
 
 ```bash
 pnpm audit --audit-level=high
@@ -116,7 +158,7 @@ List every high/critical vulnerability with its package name, severity, and the 
 
 ---
 
-## Step 8 — Report findings
+## Step 9 — Report findings
 
 Produce a structured report grouped by severity:
 
