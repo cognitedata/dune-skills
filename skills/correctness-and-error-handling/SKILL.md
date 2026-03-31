@@ -342,61 +342,7 @@ Search for `execute` functions, read each one, add the validation, and write the
 
 ---
 
-## Step 9 — Add 429 / rate-limit backoff with jitter
-
-When CDF or any external API returns **429 Too Many Requests**, the app must back off gracefully.
-
-### Search for existing retry logic
-
-```bash
-# Find retry/backoff patterns
-grep -rn --include="*.ts" --include="*.tsx" -i -E "(retry|backoff|retryAfter|retry.after|429|rate.limit|throttle)" src/
-
-# Find raw fetch/axios interceptors that might handle retries
-grep -rn --include="*.ts" --include="*.tsx" -E "interceptors\.(response|request)\.use" src/
-```
-
-### Fix based on findings
-
-- **No retry logic exists**: Create `src/utils/fetchWithBackoff.ts` with this utility, then wrap CDF calls that need retry logic with it:
-
-```typescript
-export async function fetchWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3
-): Promise<T> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error: unknown) {
-      if (
-        attempt === maxRetries ||
-        !(error instanceof Error) ||
-        !('status' in error && (error as any).status === 429)
-      ) {
-        throw error;
-      }
-
-      // Exponential backoff with jitter
-      const baseDelay = Math.pow(2, attempt) * 1000;
-      const jitter = Math.random() * 1000;
-      await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
-    }
-  }
-  throw new Error('Unreachable');
-}
-```
-
-- **Fixed-interval retries exist** (e.g. retry every 1s): Replace with exponential backoff + jitter using `fetchWithBackoff`.
-- **Immediate tight retries on 429**: Replace with `fetchWithBackoff` — this is a thundering herd risk.
-- **Backoff exists but no jitter**: Add jitter (`Math.random() * 1000`) to the delay calculation.
-- **Infinite or unbounded retries**: Add a `maxRetries` cap (3-5 attempts).
-
-Create the utility file if needed, then update each call site to use it. Write every changed file.
-
----
-
-## Step 10 — Report remaining findings
+## Step 9 — Report remaining findings
 
 Produce a structured report covering:
 
@@ -407,8 +353,7 @@ Produce a structured report covering:
 |----------|------|------|-------|--------|
 | HIGH | `src/hooks/useAssets.ts` | 34 | Unhandled promise rejection | FIXED — wrapped in try/catch |
 | MEDIUM | `src/components/AssetList.tsx` | 12 | No empty state | FIXED — added empty state check |
-| LOW | `src/utils/api.ts` | 8 | No retry logic for CDF calls | FIXED — added fetchWithBackoff |
-| MEDIUM | `src/auth/flow.ts` | 45 | Auth retry needs product decision | UNFIXED — requires team input |
+| MEDIUM | `src/auth/flow.ts` | 45 | Auth error handling needs product decision | UNFIXED — requires team input |
 
 If no issues are found in a step, state "No issues found" for that step. Do not skip steps silently.
 
