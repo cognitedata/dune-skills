@@ -1,18 +1,18 @@
 ---
 name: correctness-and-error-handling
-description: "MUST be used whenever reviewing a Dune app for bugs, missing error states, unhandled promise rejections, or incorrect edge-case behaviour. Do NOT skip — run every step when the user asks for a correctness review, bug check, error handling audit, or robustness review. Triggers: correctness, error handling, bug, edge case, crash, unhandled, null, undefined, empty state, loading state, error boundary, try catch, async error, useEffect cleanup, type guard, runtime error, robustness."
+description: "MUST be used whenever fixing correctness and error handling issues in a Dune app. This skill finds AND fixes bugs, missing error states, unhandled rejections, and edge-case failures — it does not just report them. Triggers: correctness, error handling, bug fix, edge case, crash, unhandled, null, undefined, empty state, loading state, error boundary, try catch, async error, useEffect cleanup, type guard, runtime error, robustness."
 allowed-tools: Read, Glob, Grep, Shell, Write
 metadata:
-  argument-hint: "[file or directory to review, or leave blank to review the whole app]"
+  argument-hint: "[file or directory to fix, or leave blank to fix the whole app]"
 ---
 
-# Correctness & Error Handling Review
+# Correctness & Error Handling Fix
 
-Review **$ARGUMENTS** (or the whole app if no argument is given) for correctness issues and missing error handling. Work through every step below and report all findings with file paths and line numbers.
+Find and fix correctness issues and missing error handling in **$ARGUMENTS** (or the whole app if no argument is given). Work through every step below. Each step searches for problems and then **fixes them in place**. Only report issues that cannot be auto-fixed.
 
 ---
 
-## Step 1 — Map data flows
+## Step 1 — Map data flows and fix known defects
 
 Read these files before checking anything:
 
@@ -25,9 +25,7 @@ For each async data source, note:
 - What does the UI show while loading?
 - What does the UI show if the result is empty?
 
-### Check for known defects in critical paths
-
-Before proceeding to the detailed checks below, scan for markers of unresolved issues in hooks, services, and API call sites:
+### Find and fix known defects in critical paths
 
 ```bash
 # Find TODO/FIXME/HACK in critical code paths (not test files)
@@ -37,16 +35,18 @@ grep -rn --include="*.ts" --include="*.tsx" -E "(TODO|FIXME|HACK|XXX):" src/ | g
 grep -rn --include="*.ts" --include="*.tsx" -i -E "(TODO.*fix|workaround|broken|known.?bug|temporary.?hack)" src/
 ```
 
-For each match:
-- Is it in a critical path (data fetching, rendering, auth, navigation)?
-- Does it indicate a silent failure, data corruption risk, or incorrect behavior?
-- Is there an associated test that verifies the workaround or guards against the known issue?
+For each match in a critical path (data fetching, rendering, auth, navigation):
 
-Flag any `TODO: fix` or `FIXME` in critical paths as a **known defect** that must be resolved or explicitly scoped out with a safe failure mode.
+1. **Read the surrounding code** to understand the incomplete/broken behavior.
+2. **Fix the underlying issue** — implement the missing logic, correct the broken behavior, or add proper error handling.
+3. If the fix requires significant architectural changes beyond this skill's scope, **replace the TODO with a safe failure mode**: graceful error handling, a sensible fallback value, or an explicit user-facing message explaining degraded functionality.
+4. **Remove the TODO/FIXME/HACK comment** after fixing. The code should speak for itself.
+
+Do not leave TODOs in critical paths. Every one must be resolved or converted to a safe fallback.
 
 ---
 
-## Step 2 — Verify top-level error boundaries
+## Step 2 — Add top-level error boundary
 
 Every Dune app must have at least one React Error Boundary wrapping the main content so that an unexpected render-time exception shows a user-friendly message instead of a blank screen.
 
@@ -54,7 +54,13 @@ Every Dune app must have at least one React Error Boundary wrapping the main con
 grep -rn --include="*.tsx" --include="*.ts" -E "ErrorBoundary|componentDidCatch|getDerivedStateFromError" src/
 ```
 
-If no error boundary exists, add one around the main app content:
+If no error boundary exists, **create the ErrorFallback component and add the ErrorBoundary wrapper** to `App.tsx`. Install `react-error-boundary` if not present:
+
+```bash
+pnpm add react-error-boundary
+```
+
+Then add to `App.tsx`:
 
 ```tsx
 import { ErrorBoundary } from "react-error-boundary";
@@ -68,15 +74,17 @@ function ErrorFallback({ error }: { error: Error }) {
   );
 }
 
-// In App.tsx:
+// Wrap the main content:
 <ErrorBoundary FallbackComponent={ErrorFallback}>
   <MainContent />
 </ErrorBoundary>
 ```
 
+Write the updated `App.tsx` with the ErrorBoundary in place. Do not just suggest it — make the edit.
+
 ---
 
-## Step 3 — Audit async functions for missing try/catch
+## Step 3 — Wrap unhandled async functions in try/catch
 
 Search for every `async` function and `Promise` chain that does not have error handling:
 
@@ -88,22 +96,31 @@ grep -rn --include="*.ts" --include="*.tsx" -E "async\s+function|async\s+\(" src
 grep -rn --include="*.ts" --include="*.tsx" -E "\.then\(" src/ | grep -v "\.catch\("
 ```
 
-For each async CDF call, the pattern must be:
+**Fix each one:**
+
+- For bare `async` functions that lack try/catch: **wrap the function body** in try/catch. Log the error with context and re-throw so callers/query layers can handle it:
 
 ```ts
-// GOOD — errors are caught and surfaced
 async function fetchAssets(sdk: CogniteClient) {
   try {
     const result = await sdk.assets.list({ limit: 100 });
     return result.items;
   } catch (error) {
     console.error("Failed to fetch assets:", error);
-    throw error; // re-throw so the caller / query layer can handle it
+    throw error;
   }
 }
 ```
 
-When using TanStack Query (`useQuery`/`useMutation`), the library catches errors automatically — but verify that `isError` and `error` are consumed in the component:
+- For `.then()` without `.catch()`: **add `.catch()`** to the chain:
+
+```ts
+somePromise.then(handleResult).catch((error) => {
+  console.error("Operation failed:", error);
+});
+```
+
+- For TanStack Query consumers (`useQuery`/`useMutation`) missing `isError` handling: **add the error check and error UI** to the component:
 
 ```tsx
 const { data, isLoading, isError, error } = useQuery({
@@ -111,14 +128,16 @@ const { data, isLoading, isError, error } = useQuery({
   queryFn: () => fetchAssets(sdk),
 });
 
-if (isError) return <ErrorMessage error={error} />;  // must be present
+if (isError) return <ErrorMessage error={error} />;
 ```
+
+Read each file, make the edit, and write it back.
 
 ---
 
-## Step 4 — Ensure loading and error states are shown in every component
+## Step 4 — Add missing loading, error, and empty states to components
 
-For each component that fetches data, verify it has three distinct UI states:
+For each component that fetches data, it must have three distinct UI states:
 
 | State | Required UI |
 |-------|-------------|
@@ -132,11 +151,42 @@ Search for components that render data without checking loading state:
 grep -rn --include="*.tsx" -E "\.(map|filter|find)\(" src/ | grep -v "isLoading\|isPending\|skeleton\|Skeleton"
 ```
 
-For each hit, read the component to confirm loading/error/empty states are handled above the `.map()` call.
+For each hit, read the component and **add the missing states directly**:
+
+- **Missing loading state** — add before the data render:
+```tsx
+if (isLoading) {
+  return <div className="flex items-center justify-center p-8"><Spinner /></div>;
+}
+```
+
+- **Missing error state** — add after the loading check:
+```tsx
+if (isError) {
+  return (
+    <div role="alert" className="p-4 text-center text-destructive">
+      <p>Failed to load data. Please try again.</p>
+    </div>
+  );
+}
+```
+
+- **Missing empty state** — add after the error check, before the `.map()`:
+```tsx
+if (!data || data.length === 0) {
+  return (
+    <div className="p-8 text-center text-muted-foreground">
+      <p>No results found.</p>
+    </div>
+  );
+}
+```
+
+Insert these checks in the correct order (loading, then error, then empty) above the existing data render. Write each fixed file.
 
 ---
 
-## Step 5 — Narrow types before use
+## Step 5 — Add type narrowing for external data
 
 External data (CDF responses, URL params, `localStorage`, `JSON.parse`) must be validated before use. TypeScript types alone are not runtime guarantees.
 
@@ -151,49 +201,79 @@ grep -rn --include="*.ts" --include="*.tsx" -E "localStorage\.(get|set)Item" src
 grep -rn --include="*.ts" --include="*.tsx" -E "useSearchParams|searchParams\.get" src/
 ```
 
-For each hit, verify the value is either:
-- Validated with Zod: `const parsed = MySchema.safeParse(raw);`
-- Guarded with a type guard: `if (typeof value !== "string") return;`
-- Handled with a nullish fallback: `const id = params.get("id") ?? defaultId;`
+**Fix each one:**
 
-Do not cast external data with `as MyType` — that bypasses runtime safety.
+- **`JSON.parse(x) as T`** — replace with Zod safeParse:
+```ts
+import { z } from "zod";
+
+const MySchema = z.object({ /* fields */ });
+const parseResult = MySchema.safeParse(JSON.parse(raw));
+if (!parseResult.success) {
+  console.warn("Invalid stored data, using defaults:", parseResult.error);
+  return defaultValue;
+}
+const validated = parseResult.data;
+```
+
+- **`searchParams.get("id")`** without null check — add nullish fallback:
+```ts
+const id = searchParams.get("id") ?? defaultId;
+```
+
+- **`localStorage.getItem(key)`** used directly — add type guard and fallback:
+```ts
+const raw = localStorage.getItem(key);
+if (raw === null) return defaultValue;
+try {
+  const parsed = JSON.parse(raw);
+  // validate parsed shape
+  return isValidShape(parsed) ? parsed : defaultValue;
+} catch {
+  return defaultValue;
+}
+```
+
+Do not cast external data with `as MyType` — that bypasses runtime safety. Read, fix, and write each file.
 
 ---
 
-## Step 6 — Handle null, undefined, and empty arrays
+## Step 6 — Fix null, undefined, and unsafe array access
 
 Read every component that accesses properties of data returned from CDF or passed via props.
 
-Common patterns to flag:
-
-```tsx
-// BAD — crashes if data is undefined
-const name = asset.properties.space.Asset.name;
-
-// GOOD — optional chaining
-const name = asset.properties?.["my-space"]?.["Asset"]?.name ?? "Unknown";
-
-// BAD — crashes if items is undefined
-items.map(renderItem);
-
-// GOOD
-(items ?? []).map(renderItem);
-
-// BAD — crashes if the array is empty
-const first = items[0].name;
-
-// GOOD
-const first = items.at(0)?.name ?? "—";
-```
-
-Search for direct array index access:
 ```bash
 grep -rn --include="*.tsx" --include="*.ts" -E "\w+\[0\]\." src/
 ```
 
+**Fix each unsafe pattern found:**
+
+- **Unsafe nested property access** — add optional chaining and nullish coalescing:
+```tsx
+// Before: asset.properties.space.Asset.name
+// After:
+const name = asset.properties?.["my-space"]?.["Asset"]?.name ?? "Unknown";
+```
+
+- **Unguarded `.map()` on possibly-undefined array** — add nullish fallback:
+```tsx
+// Before: items.map(renderItem)
+// After:
+(items ?? []).map(renderItem)
+```
+
+- **Unsafe array index access** — use `.at()` with optional chaining:
+```tsx
+// Before: items[0].name
+// After:
+const first = items.at(0)?.name ?? "—";
+```
+
+Read each file with a match, apply the fix, and write it back.
+
 ---
 
-## Step 7 — Verify useEffect cleanup
+## Step 7 — Add useEffect cleanup functions
 
 Every `useEffect` that sets up a subscription, timer, event listener, or async operation that can outlive the component must return a cleanup function.
 
@@ -201,20 +281,19 @@ Every `useEffect` that sets up a subscription, timer, event listener, or async o
 grep -rn --include="*.tsx" --include="*.ts" -B 2 -A 15 "useEffect" src/
 ```
 
-For each `useEffect`, check:
+For each `useEffect`, check whether cleanup is needed and **add the cleanup function** if missing:
 
-| Pattern | Required cleanup |
-|---------|-----------------|
-| `addEventListener` | `removeEventListener` |
-| `setInterval` / `setTimeout` | `clearInterval` / `clearTimeout` |
-| CDF streaming / SSE | Close the stream |
-| `fetch` / CDF SDK call | `AbortController.abort()` |
-| Zustand / event emitter subscription | `unsubscribe()` |
+| Pattern | Fix to add |
+|---------|-----------|
+| `addEventListener` | Add `return () => removeEventListener(...)` |
+| `setInterval` / `setTimeout` | Add `return () => clearInterval(id)` / `clearTimeout(id)` |
+| CDF streaming / SSE | Add `return () => stream.close()` |
+| `fetch` / CDF SDK call | Add AbortController: `const controller = new AbortController()` at the top, pass `controller.signal` to fetch, add `return () => controller.abort()`, and guard state updates with `if (!controller.signal.aborted)` |
+| Zustand / event emitter subscription | Add `return () => unsubscribe()` |
 
-Missing cleanup causes memory leaks and stale state updates on unmounted components.
+Reference pattern for async effects:
 
 ```ts
-// GOOD — async fetch with abort
 useEffect(() => {
   const controller = new AbortController();
 
@@ -234,19 +313,21 @@ useEffect(() => {
 }, [id]);
 ```
 
+Read each effect, add the missing cleanup, and write the file.
+
 ---
 
-## Step 8 — Check edge cases
+## Step 8 — Add edge case guards
 
-For each feature, verify behaviour for:
+For each feature, check and **add guards** for:
 
-- **Empty data**: zero-item lists, zero-result CDF queries
-- **Single item**: list with exactly one entry (common source of off-by-one rendering bugs)
-- **Maximum data**: what happens when CDF returns the full `limit` and there are more pages? Is pagination communicated?
-- **Concurrent requests**: if the user triggers a new search before the previous completes, is the stale result discarded?
-- **Network offline**: does the app show a meaningful message or silently fail?
+- **Empty data**: If zero-item lists are not handled, add an empty state check before rendering.
+- **Single item**: If list rendering has off-by-one bugs with a single entry, fix the logic.
+- **Maximum data / pagination**: If CDF returns the full `limit` and there are more pages, ensure pagination is communicated to the user. Add a "Load more" or pagination indicator if missing.
+- **Concurrent requests / stale results**: If the user can trigger a new request before the previous completes, add stale request cancellation (AbortController or a request ID check).
+- **Network offline**: If the app silently fails when offline, add a meaningful error message.
 
-For Atlas tool `execute` functions, verify every `args` field is present and within expected bounds before calling CDF:
+For Atlas tool `execute` functions, **add argument validation** at the top of every execute function:
 
 ```ts
 execute: async (args) => {
@@ -257,11 +338,13 @@ execute: async (args) => {
 }
 ```
 
+Search for `execute` functions, read each one, add the validation, and write the file.
+
 ---
 
-## Step 9 — Verify 429 / rate-limit backoff with jitter
+## Step 9 — Add 429 / rate-limit backoff with jitter
 
-When CDF or any external API returns **429 Too Many Requests** (or similar rate-limit signals), the app must back off gracefully — not hammer the service with immediate retries.
+When CDF or any external API returns **429 Too Many Requests**, the app must back off gracefully.
 
 ### Search for existing retry logic
 
@@ -273,24 +356,12 @@ grep -rn --include="*.ts" --include="*.tsx" -i -E "(retry|backoff|retryAfter|ret
 grep -rn --include="*.ts" --include="*.tsx" -E "interceptors\.(response|request)\.use" src/
 ```
 
-### What to check
+### Fix based on findings
 
-For each CDF SDK call site or API call:
-
-| Check | Requirement |
-|-------|-------------|
-| Backoff strategy | **Exponential backoff with jitter** — not fixed-interval retries |
-| `Retry-After` header | Respected when present in the 429 response |
-| Retry cap | Bounded maximum attempts (e.g. 3–5 retries) — never infinite |
-| User feedback | UI shows a loading/degraded state during retries — not silent |
-| Synchronized retries | Jitter prevents multiple components from retrying at the exact same moment (thundering herd) |
-
-### Reference implementation
-
-If no retry logic exists for CDF calls, recommend this pattern:
+- **No retry logic exists**: Create `src/utils/fetchWithBackoff.ts` with this utility, then wrap CDF calls that need retry logic with it:
 
 ```typescript
-async function fetchWithBackoff<T>(
+export async function fetchWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries = 3
 ): Promise<T> {
@@ -316,27 +387,28 @@ async function fetchWithBackoff<T>(
 }
 ```
 
-### Severity guide
+- **Fixed-interval retries exist** (e.g. retry every 1s): Replace with exponential backoff + jitter using `fetchWithBackoff`.
+- **Immediate tight retries on 429**: Replace with `fetchWithBackoff` — this is a thundering herd risk.
+- **Backoff exists but no jitter**: Add jitter (`Math.random() * 1000`) to the delay calculation.
+- **Infinite or unbounded retries**: Add a `maxRetries` cap (3-5 attempts).
 
-| Pattern found | Severity |
-|--------------|----------|
-| No retry logic at all for CDF calls | MEDIUM — add backoff wrapper |
-| Fixed-interval retries (e.g. retry every 1s) | MEDIUM — add exponential backoff + jitter |
-| Immediate tight retries on 429 | HIGH — thundering herd risk |
-| Infinite or unbounded retries | HIGH — can overwhelm shared quotas |
-| Backoff exists but no jitter | LOW — add jitter to prevent synchronized retries |
+Create the utility file if needed, then update each call site to use it. Write every changed file.
 
 ---
 
-## Step 10 — Report findings
+## Step 10 — Report remaining findings
 
-Produce a structured report:
+Produce a structured report covering:
 
-| Severity | File | Line | Issue | Recommendation |
-|----------|------|------|-------|----------------|
-| HIGH | `src/hooks/useAssets.ts` | 34 | Unhandled promise rejection in fetchAssets | Wrap in try/catch and surface error state |
-| MEDIUM | `src/components/AssetList.tsx` | 12 | No empty state rendered when `items.length === 0` | Add empty state message |
-| LOW | `src/App.tsx` | — | No top-level ErrorBoundary | Wrap `<App>` content with ErrorBoundary |
+1. **What was fixed in each step** — summarize the changes made (files edited, patterns fixed).
+2. **Remaining issues** — only list issues that could not be auto-fixed (e.g., require architectural changes, need product decisions, or are outside the scope of this skill).
+
+| Severity | File | Line | Issue | Status |
+|----------|------|------|-------|--------|
+| HIGH | `src/hooks/useAssets.ts` | 34 | Unhandled promise rejection | FIXED — wrapped in try/catch |
+| MEDIUM | `src/components/AssetList.tsx` | 12 | No empty state | FIXED — added empty state check |
+| LOW | `src/utils/api.ts` | 8 | No retry logic for CDF calls | FIXED — added fetchWithBackoff |
+| MEDIUM | `src/auth/flow.ts` | 45 | Auth retry needs product decision | UNFIXED — requires team input |
 
 If no issues are found in a step, state "No issues found" for that step. Do not skip steps silently.
 
@@ -344,4 +416,4 @@ If no issues are found in a step, state "No issues found" for that step. Do not 
 
 ## Done
 
-Summarize findings by severity. Flag any HIGH issues that could cause data loss, crashes in production, or misleading UI states, and list them first for immediate attention.
+Summarize what was fixed by severity. Flag any remaining HIGH issues that could cause data loss, crashes in production, or misleading UI states, and list them first for immediate attention.
