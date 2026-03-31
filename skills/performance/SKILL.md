@@ -74,7 +74,60 @@ Apply `React.memo` to pure presentational components that receive stable props. 
 
 ---
 
-## Step 3 — Optimize CDF data fetching
+## Step 3 — Use the lightest DMS API for each read path
+
+For **read-heavy** workloads, prefer APIs that hit the **search/Elasticsearch path** (`query` or `search` on instances) rather than `list` paths that stress **Postgres**. Reserve heavier endpoints for writes or semantics only available on those endpoints.
+
+```bash
+# Find all DMS instance API calls
+grep -rn --include="*.ts" --include="*.tsx" -E "instances\.(list|search|query|aggregate|retrieve)" src/
+
+# Find direct SDK calls to other CDF resources
+grep -rn --include="*.ts" --include="*.tsx" -E "\.(assets|timeseries|events|files|sequences|relationships)\.(list|search|retrieve)" src/
+```
+
+For each call, evaluate:
+
+| API used | When it's correct | When to flag |
+|----------|-------------------|-------------|
+| `instances.query` | Read with filters that map to Elasticsearch (text, equals, range) | — |
+| `instances.search` | Full-text or fuzzy search | — |
+| `instances.list` | Writing, syncing, or need for semantics not available on query/search | Flag if used for read-heavy UI display when query/search would work |
+| `instances.retrieve` | Fetching by known external IDs | — |
+| `instances.aggregate` | Counts, histograms | — |
+
+Flag any `instances.list` call in a read-heavy path (e.g. populating a table, dropdown, or search results) where `instances.query` or `instances.search` would be more efficient. The goal is to push read work to Elasticsearch, not Postgres.
+
+For deeper rationale on search vs relational paths, cardinality, and materialization tradeoffs, consult the `semantic-knowledge/` directory if available in the workspace.
+
+---
+
+## Step 4 — Ensure server-side filtering; avoid bulk fetch-and-filter
+
+Filters, limits, and projections must be applied **in the API request** — not by downloading large result sets and filtering in the browser.
+
+```bash
+# Find client-side filtering after data fetch (common anti-pattern)
+grep -rn --include="*.ts" --include="*.tsx" -B 5 "\.filter(" src/ | grep -B 5 "data\|items\|result\|response\|nodes"
+
+# Find .map() or .reduce() on full datasets that suggest client-side processing
+grep -rn --include="*.ts" --include="*.tsx" -E "\.(map|reduce|find|some|every)\(" src/hooks/ src/services/ src/api/
+```
+
+For each data fetch → client filter pattern:
+
+| Issue | Fix |
+|-------|-----|
+| `.filter()` after SDK call on full result set | Move the filter into the API request's `filter` parameter |
+| No `properties` selection in DMS query | Add a `sources` or `properties` parameter to fetch only needed fields |
+| Fetching all items then rendering a subset | Use the API's `limit` and `filter` to fetch only what's displayed |
+| Client-side text search on fetched array | Use the SDK's `search` endpoint instead |
+
+**Hard rule:** If the API supports a filter for the criterion being applied client-side, it **must** be moved server-side. Client-side filtering is acceptable only for trivial local state (e.g. filtering a cached list of 10 user preferences).
+
+---
+
+## Step 5 — Optimize CDF data fetching
 
 Read all CDF SDK calls (search for `sdk.`, `client.`, `useQuery`, `useCogniteClient`).
 
@@ -87,6 +140,10 @@ For each call, check:
 | Fetching on every render | Move inside `useQuery`/`useMemo` with a stable dependency array |
 | Sequential requests that could be parallel | Use `Promise.all` or batched SDK methods |
 | Polling without debounce | Add debounce (300–500 ms) for search inputs before firing CDF queries |
+| Missing `limit` parameter | Add explicit `limit` matching the UI's page size (e.g. 25, 50, 100) |
+| Offset-based pagination for large datasets | Switch to cursor-based pagination (`cursors` or `nextCursor`) |
+| Aggressive prefetch of next pages | Only prefetch the next page, not multiple pages ahead |
+| "Fetch all" loop (exhausts cursors up front) | Paginate on demand — fetch the next page only when the user scrolls or clicks "next" |
 
 Example — scoped instance query:
 ```ts
@@ -102,9 +159,55 @@ const result = await client.instances.list({
 });
 ```
 
+### Pagination check
+
+```bash
+# Find pagination patterns
+grep -rn --include="*.ts" --include="*.tsx" -E "(nextCursor|cursor|hasNextPage|fetchNextPage|offset|skip|page)" src/
+
+# Find "fetch all" loops
+grep -rn --include="*.ts" --include="*.tsx" -B 3 -A 3 "while.*cursor\|while.*hasMore\|while.*nextPage" src/
+```
+
+Flag:
+- Any loop that fetches all pages up front (exhausts cursors before rendering)
+- Missing `limit` on SDK calls (defaults are often too high)
+- Prefetch of more than one page ahead without user intent
+
 ---
 
-## Step 4 — Virtualize large lists
+## Step 6 — Control rate of API calls
+
+Verify the app does not hammer CDF or DMS with excessive, redundant, or poorly-timed requests.
+
+```bash
+# Find search/filter inputs that trigger queries
+grep -rn --include="*.tsx" --include="*.ts" -E "onChange|onInput|onSearch|onFilter" src/ | grep -i "search\|filter\|query"
+
+# Find debounce usage
+grep -rn --include="*.ts" --include="*.tsx" -i -E "debounce|useDebouncedValue|useDebounce" src/
+
+# Find polling/interval patterns
+grep -rn --include="*.ts" --include="*.tsx" -E "setInterval|refetchInterval|pollingInterval|refetchOnWindowFocus" src/
+
+# Find useQuery options that control refetch behavior
+grep -rn --include="*.ts" --include="*.tsx" -E "staleTime|cacheTime|gcTime|refetchOnMount|refetchOnWindowFocus" src/
+```
+
+| Issue | Fix |
+|-------|-----|
+| Search input fires query on every keystroke | Add debounce (300–500 ms) before triggering the API call |
+| Polling with no backoff or very short interval | Use a reasonable interval (≥30s) with exponential backoff on errors |
+| Re-fetching on every render (no caching) | Use TanStack Query with appropriate `staleTime` and `gcTime` |
+| `refetchOnWindowFocus: true` for expensive queries | Disable or use a longer stale time |
+| Duplicate parallel identical requests | Deduplicate with TanStack Query's built-in deduplication or a request cache |
+| Multiple components triggering the same fetch | Lift the query to a shared hook or context |
+
+**Key principle:** Request rate should be proportional to user intent. A user typing a search query should generate one API call (after debounce), not one per character. A table that is already loaded should not re-fetch when the user switches tabs and returns.
+
+---
+
+## Step 7 — Virtualize large lists
 
 Search for lists that render more than ~50 items:
 ```bash
@@ -140,7 +243,7 @@ return (
 
 ---
 
-## Step 5 — Code-split heavy pages and components
+## Step 8 — Code-split heavy pages and components
 
 Any page or modal that is not needed on the initial load should be lazy-loaded. Read the router setup and identify routes that are imported statically but not shown on the landing page.
 
@@ -162,7 +265,7 @@ Similarly, large third-party components (chart libraries, PDF viewers, map rende
 
 ---
 
-## Step 6 — Analyse and reduce bundle size
+## Step 9 — Analyse and reduce bundle size
 
 ```bash
 # Install if not already present, then run
@@ -192,7 +295,7 @@ Revert the visualizer plugin after analysis.
 
 ---
 
-## Step 7 — Fix memory leaks
+## Step 10 — Fix memory leaks
 
 Search for `useEffect` hooks that set up subscriptions, timers, or event listeners without cleanup:
 
@@ -212,7 +315,7 @@ useEffect(() => {
 
 ---
 
-## Step 8 — Measure after and report
+## Step 11 — Measure after and report
 
 Re-run the same Lighthouse audit and React Profiler session from Step 1. Report the delta:
 
