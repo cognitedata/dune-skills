@@ -119,100 +119,7 @@ Similarly, Atlas tools should receive their dependencies via `execute`'s closure
 
 ---
 
-## Step 6 — Verify coding patterns and testability
-
-Check that the codebase follows the three core patterns required by the Dune app review process. These patterns keep code testable, maintainable, and consistent.
-
-### 6a — Dependency injection via React context
-
-Hooks must declare their dependencies through a context type and consume them via `useContext`, not by importing them directly. This enables testing without module-level mocks.
-
-```bash
-# Find hooks that import other hooks/services directly (potential DI violation)
-grep -rn --include="*.ts" --include="*.tsx" -E "^import.*from\s+['\"]\.\./" src/hooks/
-
-# Find hooks that use useContext for dependency injection (good pattern)
-grep -rn --include="*.ts" --include="*.tsx" "useContext" src/hooks/
-```
-
-The preferred pattern:
-
-```typescript
-// GOOD — injectable via context
-const defaultDependencies = { useDataSource, useAnalytics };
-export type UseMyHookContextType = typeof defaultDependencies;
-export const UseMyHookContext = createContext<UseMyHookContextType>(defaultDependencies);
-export function useMyHook() {
-  const { useDataSource } = useContext(UseMyHookContext);
-}
-
-// BAD — hard-coded import, requires vi.mock to test
-import { useDataSource } from '../data/useDataSource';
-export function useMyHook() { const data = useDataSource(); }
-```
-
-For non-React code (utilities, services), use **factory functions with partial dependency overrides**:
-
-```typescript
-type Deps = { serviceFactory: () => SomeService };
-const defaultDeps: Deps = { serviceFactory: () => new SomeServiceImpl() };
-export const doSomething = async (props: Props, depOverrides?: Partial<Deps>) => {
-  const deps = { ...defaultDeps, ...depOverrides };
-  const service = deps.serviceFactory();
-};
-```
-
-Flag every hook that imports dependencies directly instead of receiving them through context. These are testability concerns even if tests exist today.
-
-### 6b — Interface-based services
-
-Service classes must implement explicit TypeScript interfaces. This keeps production code substitutable and test doubles type-safe.
-
-```bash
-# Find service/class definitions and check for interface implementations
-grep -rn --include="*.ts" --include="*.tsx" -E "class\s+\w+(Service|Client|Repository|Manager)" src/
-
-# Find unsafe casts in production AND test code
-grep -rn --include="*.ts" --include="*.tsx" "as unknown as" src/
-```
-
-Flag:
-- Service classes that do not implement an explicit interface
-- `as unknown as T` casts in either production or test code — this signals poor interface design
-
-### 6c — ViewModel pattern
-
-Page-level hooks (`useSomethingViewModel`) must separate business logic from presentation. UI components receive data and callbacks only; they contain no data-fetching, side-effect logic, or direct SDK calls.
-
-```bash
-# Find page/view components
-grep -rn --include="*.tsx" --include="*.ts" -l "useQuery\|useMutation\|sdk\.\|client\." src/pages/ src/views/ 2>/dev/null
-
-# Find ViewModel hooks
-grep -rn --include="*.ts" --include="*.tsx" -l "ViewModel" src/hooks/ 2>/dev/null
-```
-
-Flag:
-- Page components that contain `useQuery`, `useMutation`, or direct SDK calls — this logic should be in a ViewModel hook
-- Missing ViewModel hooks for pages with non-trivial data logic
-
-### 6d — Test mock quality
-
-```bash
-# Find vi.mock usage — each should have a comment justifying why context injection wasn't used
-grep -rn --include="*.ts" --include="*.tsx" "vi\.mock" src/
-
-# Find unsafe test casts
-grep -rn --include="*.ts" --include="*.tsx" "as unknown as" src/ | grep -E "\.test\.|\.spec\."
-```
-
-Flag:
-- `vi.mock` usage without a justification comment explaining why context injection was not possible
-- `as unknown as T` casts in test files — signals poor interface design in the production code
-
----
-
-## Step 7 — Check naming conventions
+## Step 6 — Check naming conventions
 
 Read a representative sample of files and verify:
 
@@ -237,7 +144,7 @@ node -e "const fs=require('fs');fs.readdirSync('src/hooks').filter(f=>f.endsWith
 
 ---
 
-## Step 8 — Remove dead code
+## Step 7 — Remove dead code
 
 ```powershell
 # Find commented-out code blocks (3+ consecutive commented lines)
@@ -263,33 +170,15 @@ grep -rn --include="*.tsx" --include="*.ts" -E "console\.(log|debug|warn|error|i
 grep -rn --include="*.tsx" --include="*.ts" -E "(TODO|FIXME|HACK|XXX):" src/
 ```
 
-Search for unreachable pages (routes defined in the router but whose component is never imported or rendered) and entirely unused files:
-
-```bash
-# Find all .ts/.tsx files and check if they are imported anywhere
-for file in $(find src -name "*.ts" -o -name "*.tsx" | grep -v ".test." | grep -v ".spec." | grep -v "node_modules"); do
-  basename=$(basename "$file" | sed 's/\.[^.]*$//')
-  imports=$(grep -rn --include="*.ts" --include="*.tsx" "$basename" src/ | grep -v "$file" | wc -l)
-  if [ "$imports" -eq 0 ]; then
-    echo "UNUSED: $file"
-  fi
-done
-
-# Find route definitions and verify their components are imported
-grep -rn --include="*.tsx" --include="*.ts" -E "path:\s*['\"]|<Route" src/
-```
-
 Rules:
 - `console.log` and `console.debug` must be removed before shipping (use proper error logging for `console.error`).
 - Commented-out code blocks must be removed — version control preserves history.
 - `TODO` and `FIXME` comments older than the current sprint should be resolved or converted to tracked issues.
 - Unused imports are caught by the linter (Step 1); confirm they are gone.
 
-**Hard gate:** Unreachable pages, entirely unused files, and significant dead code blocks **must** be removed before approval. These are blocking findings.
-
 ---
 
-## Step 9 — Verify file and export structure
+## Step 8 — Verify file and export structure
 
 Every feature area should follow a consistent structure. Check that the app's layout matches this pattern:
 
@@ -314,7 +203,7 @@ Flag:
 
 ---
 
-## Step 10 — Report findings
+## Step 9 — Report findings
 
 Produce a structured report grouped by category:
 
