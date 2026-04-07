@@ -68,10 +68,13 @@ pnpm install --no-frozen-lockfile
 
 ---
 
-## Step 2 — Create the dune-fe-auth shim
+## Step 2 — Create the dune-fe-auth shim AND wire the alias (do both now)
 
-`@cognite/dune-industrial-components/reveal` calls `useCDF()` from `dune-fe-auth` internally.
-Create a one-line shim and alias Vite to serve it in place of the real package:
+`@cognite/dune-industrial-components/reveal` imports `useCDF` from `dune-fe-auth` at
+runtime. Without the alias the app throws:
+`Could not resolve "dune-fe-auth" imported by "@cognite/dune-industrial-components"`
+
+**2a — create the shim file:**
 
 ```ts
 // src/dune-fe-auth-shim.ts
@@ -79,7 +82,26 @@ Create a one-line shim and alias Vite to serve it in place of the real package:
 export { useDune as useCDF } from '@cognite/dune';
 ```
 
-This prevents `dune-fe-auth`'s React 18 code from ever loading. The alias is added in Step 3.
+**2b — add the alias to `vite.config.ts` immediately (do not defer to Step 3):**
+
+```ts
+resolve: {
+  alias: {
+    'dune-fe-auth': path.resolve(__dirname, 'src/dune-fe-auth-shim.ts'),
+    // ... other aliases
+  }
+}
+```
+
+**Verify before continuing:**
+```bash
+grep -r "dune-fe-auth" vite.config.ts   # must print the alias line
+ls src/dune-fe-auth-shim.ts             # must exist
+```
+
+If either check fails, fix it before moving on. Do **not** skip to Step 3 and plan to
+"add it later" — the error only appears at browser runtime, not at build time, so it is
+easy to miss until the app first loads.
 
 ---
 
@@ -172,7 +194,27 @@ viewer disposal when keepAlive context is present.
 
 ---
 
-## Step 6 — Implementation
+## Step 6 — Pre-flight check (required before writing components)
+
+Run these two checks. If either fails, fix it now — the error only surfaces at browser
+runtime and is easy to miss until the app first loads:
+
+```bash
+grep "dune-fe-auth" vite.config.ts   # must print the alias line
+ls src/dune-fe-auth-shim.ts          # must exist
+```
+
+Expected output:
+```
+'dune-fe-auth': path.resolve(__dirname, 'src/dune-fe-auth-shim.ts'),
+src/dune-fe-auth-shim.ts
+```
+
+If the alias is missing, add it to `resolve.alias` in `vite.config.ts` now (see Step 2).
+
+---
+
+## Step 7 — Implementation
 
 **Default pattern: Pattern B (model browser — auto-loads models).**
 Uses `sdk.models3D.list()` to auto-discover all 3D models in the CDF project and
@@ -379,7 +421,7 @@ export default function App() {
 
 ---
 
-## Step 7 — Container height
+## Step 8 — Container height
 
 `RevealCanvas` fills its container with `width: 100%; height: 100%`. The parent **must have an explicit height**:
 
