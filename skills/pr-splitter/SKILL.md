@@ -1,6 +1,6 @@
 ---
 name: pr-splitter
-description: Split a large committed branch into reviewable GitHub Pull Requests grouped by user-facing feature. Each feature gets its own independent batch of small PRs (~200-300 lines each) that collectively make that feature functional once merged. Use whenever the user mentions splitting a PR, breaking up a large branch, making a branch reviewable, stacking PRs, or says something like "this PR is too big" or "how do I break this up" — even if they don't use the term "PR splitter."
+description: Split a large committed branch into reviewable GitHub Pull Requests grouped by user-facing feature. Each feature gets its own independent batch of small PRs (~500-700 lines each, excluding tests) that collectively make that feature functional once merged. Use whenever the user mentions splitting a PR, breaking up a large branch, making a branch reviewable, stacking PRs, or says something like "this PR is too big" or "how do I break this up" — even if they don't use the term "PR splitter."
 ---
 
 # PR Splitter — Feature-Batch Model
@@ -19,8 +19,8 @@ each PR has a clear narrative a reviewer can follow in 15-20 minutes.
 
 **The model:**
 - **Boilerplate PR**: config, CI/CD, lock files, IDE config. No LOC limit.
-- **Shared Foundation (optional)**: types and utilities imported by 2+ batches. ~200-300 lines.
-- **Feature Batches**: one batch per feature, branching independently. ~200-300 lines per PR, hard ceiling ~500.
+- **Shared Foundation (optional)**: types and utilities imported by 2+ batches. ~500-700 lines (excluding tests).
+- **Feature Batches**: one batch per feature, branching independently. ~500-700 lines per PR (excluding tests), hard ceiling ~1000.
 - **Integration PR (last)**: app entry point, router, global providers.
 
 When all PRs in a feature batch are merged, that feature is independently
@@ -67,6 +67,7 @@ git diff --stat main HEAD
 
 Build an annotated file list with the **counted line total** for each file. Counting rules:
 - Lock files, generated files (`*.generated.*`), binaries, and docs are excluded from LOC counts
+- Test files (`*.test.*`, `*.spec.*`, `__tests__/`, `*.test-utils.*`) are excluded from LOC counts — they are tracked separately but never count against a PR's LOC budget
 - Only additions count (not deletions or whitespace-only changes)
 - Lock files always go in the boilerplate PR regardless of size
 
@@ -119,7 +120,7 @@ Files that belong here:
 - Shared UI primitives (shadcn/radix components, base button, input, dialog, etc.)
 - Global state context providers that coordinate multiple features
 
-Target: ~200-300 counted lines. If the shared layer exceeds 300 lines, sub-split it:
+Target: ~500-700 counted lines (excluding tests). If the shared layer exceeds 700 lines, sub-split it:
 - PR 2a: shared types + pure utility functions
 - PR 2b: shared UI primitives + styling
 - PR 2c: shared service/API layer + context providers
@@ -134,13 +135,13 @@ For each user-facing feature identified in Step 1b, create a batch. Each batch c
 - Feature-specific TypeScript types and interfaces
 - CDF query hooks, API calls, data-fetching functions for this feature
 - Query key constants for this feature
-Target: ~200-300 counted lines.
+Target: ~500-700 counted lines (excluding tests).
 
 **Batch PR B — Feature Logic & Utilities**
 - Business logic utilities specific to this feature (generation, formatting, calculation)
 - Feature-specific state hooks (orchestration hooks that combine data + logic)
 - PDF/export utilities if feature-specific
-Target: ~200-300 counted lines. If this layer exceeds 300, split along natural boundaries:
+Target: ~500-700 counted lines (excluding tests). If this layer exceeds 700, split along natural boundaries:
   - e.g., data-transformation utils vs. generation/output utils
   - e.g., one hook per file if hooks are large
 
@@ -148,13 +149,13 @@ Target: ~200-300 counted lines. If this layer exceeds 300, split along natural b
 - Feature-specific components (dialogs, panels, cards)
 - The page(s) that compose this feature
 - Feature module entry points (`index.ts`)
-Target: ~200-300 counted lines. If page files are large, split by component:
+Target: ~500-700 counted lines (excluding tests). If page files are large, split by component:
   - e.g., one PR per large page component
   - e.g., shared feature components (dialogs, result panels) in one PR, the main page in another
 
 **Batch PR D — Feature Tests (optional)**
 - Unit and integration tests for this feature
-- Only create this as a separate PR if the tests alone exceed ~200 lines; otherwise, include them in the relevant A/B/C PR
+- Tests never count toward the LOC budget of any PR — include them in the most relevant A/B/C PR unless they are large enough to impair review focus, in which case create a dedicated test PR
 
 **Completeness requirement**: when every PR in the batch has been merged into `main`, a developer must be able to run the app and exercise that feature end-to-end. If the feature depends on the integration PR to be accessible via navigation, state this explicitly in the final batch PR description.
 
@@ -162,11 +163,12 @@ Target: ~200-300 counted lines. If page files are large, split by component:
 
 ### LOC Discipline
 
-1. **Target**: ~200-300 counted lines per feature PR.
-2. **If oversize**: look for natural sub-splits within the layer (separate sub-components, split utils by concern).
-3. **Exception ceiling**: ~500 lines — if exceeded, the PR description must include the exact count, per-file breakdown, and a concrete reason why further splitting would break compilation or review.
-4. **Hard ceiling**: ~700 lines. Restructure the batch rather than accept a PR this large.
-5. **Boilerplate PR is exempt.** Document its contents clearly instead.
+1. **Tests are excluded.** Test files (`*.test.*`, `*.spec.*`, `__tests__/`) never count toward a PR's LOC budget. Count only production code.
+2. **Target**: ~500-700 counted lines per feature PR (production code only).
+3. **If oversize**: look for natural sub-splits within the layer (separate sub-components, split utils by concern).
+4. **Exception ceiling**: ~900 lines — if exceeded, the PR description must include the exact count, per-file breakdown, and a concrete reason why further splitting would break compilation or review.
+5. **Hard ceiling**: ~1000 lines. Restructure the batch rather than accept a PR this large.
+6. **Boilerplate PR is exempt.** Document its contents clearly instead.
 
 ---
 
@@ -180,7 +182,7 @@ The final PR wires all features together:
 - Global context providers that span multiple features
 - Any remaining shared utilities not captured earlier
 
-Target: ~200-300 counted lines. Accept an exception here if the app's entry point file is inherently large.
+Target: ~500-700 counted lines (excluding tests). Accept an exception here if the app's entry point file is inherently large.
 
 ---
 
@@ -374,8 +376,8 @@ flowchart TD
 - **Feature batch**: this is part of the `<Feature Name>` batch (`prA` → `prB` → `prC`). Merge this batch in order: `prA` first, then `prB`, then this PR.
 - **Other batches are independent**: the `<Other Feature>` batch can be reviewed and merged in any order relative to this batch.
 - **Deployment**: This PR will NOT trigger a deployment. The CD pipeline runs only when a PR merges into `main`. Merging feature batch PRs is safe at any time.
-<CONDITIONAL — include only if PR exceeds 300 counted lines:>
-- **LOC note**: This PR contains <EXACT_TOTAL> counted lines (excluding generated/binary/doc files). Breakdown:
+<CONDITIONAL — include only if PR exceeds 700 counted lines (production code, excluding tests):>
+- **LOC note**: This PR contains <EXACT_TOTAL> counted lines (production code only; tests and generated/binary/doc files excluded). Breakdown:
   - `<file-name>`: <line-count> lines — <one sentence on why this file cannot be in a separate PR>
   A sub-split was considered but rejected because: <specific concrete reason>.
 </CONDITIONAL>
