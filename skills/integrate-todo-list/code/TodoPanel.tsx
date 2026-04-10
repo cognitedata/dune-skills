@@ -32,8 +32,10 @@ export function TodoPanel({ todos }: TodoPanelProps) {
           />
         </div>
         <CardContent className="max-h-40 overflow-y-auto pt-3">
-          {todos.map((item) => (
-            <TodoItemRow key={item.content} item={item} />
+          {todos.map((item, i) => (
+            // Index is safe here: the agent only appends to the end and updates in place — it never reorders or inserts in the middle.
+            // Using content as a key would cause remounts (and animation resets) whenever the agent updates a task title with discovered node names.
+            <TodoItemRow key={i} item={item} />
           ))}
         </CardContent>
       </Card>
