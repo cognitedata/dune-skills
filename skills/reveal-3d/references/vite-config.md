@@ -1,23 +1,5 @@
 # Vite Configuration for @cognite/reveal in a Dune monorepo app
 
-## src/dune-fe-auth-shim.ts — create this file first
-
-```ts
-// useDune and useCDF have identical signatures: { sdk, isLoading, error }
-export { useDune as useCDF } from '@cognite/dune';
-```
-
-This shim is aliased in `vite.config.ts` so that when `@cognite/dune-industrial-components/reveal`
-calls `useCDF()` from `dune-fe-auth`, it gets the shim instead of the real package.
-
-**Why not install the real dune-fe-auth?**
-`dune-fe-auth` was compiled against React 18 and internally calls
-`React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher`.
-That property was removed in React 19. Dune monorepos use React 19 — the real package
-crashes regardless of bundling strategy.
-
----
-
 ## src/main.tsx — process polyfill must be the very first two lines
 
 ```tsx
@@ -47,8 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );
 ```
 
-Keep `DuneAuthProvider` from `@cognite/dune`. Do **not** use `CDFAuthenticationProvider`
-from `dune-fe-auth` — the shim makes this unnecessary and avoids the React 18/19 conflict.
+Keep `DuneAuthProvider` from `@cognite/dune`. Do **not** use `CDFAuthenticationProvider` from `dune-fe-auth`.
 
 ---
 
@@ -80,12 +61,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
 
-      // --- dune-fe-auth shim ---
-      // @cognite/dune-industrial-components imports useCDF from dune-fe-auth.
-      // We point it to our shim (which re-exports useDune as useCDF) so the real
-      // dune-fe-auth (compiled for React 18) is never loaded in this React 19 monorepo.
-      'dune-fe-auth': path.resolve(__dirname, 'src/dune-fe-auth-shim.ts'),
-
       // --- Node built-in polyfills ---
       // Use explicit package aliases, not vite-plugin-node-polyfills.
       // The plugin introduces transitive dep conflicts ("Could not resolve 'inherits'").
@@ -111,7 +86,7 @@ export default defineConfig({
     conditions: ['import', 'module', 'browser', 'default'],
   },
   optimizeDeps: {
-    // NEVER add @cognite/dune-industrial-components or dune-fe-auth to `exclude`.
+    // NEVER add @cognite/dune-industrial-components to `exclude`.
     // Excluding forces raw ESM serving. In pnpm's virtual store, raw ESM files resolve
     // React via their own physical path — a different module instance from the
     // pre-bundled singleton — causing ReactCurrentDispatcher errors even with dedupe.
@@ -152,7 +127,6 @@ export default defineConfig({
 
 | Setting | Reason |
 |---------|--------|
-| `dune-fe-auth` alias → shim | Prevents React 18 internals code from ever loading in a React 19 monorepo |
 | `util/`, `assert/`, `process/browser` aliases | Browser-compatible replacements for Node built-ins. Packages must be in `dependencies`. Do NOT use `vite-plugin-node-polyfills` — causes "Could not resolve 'inherits'" |
 | `process` polyfill in main.tsx first | `@cognite/reveal` deps call `process.env` at **runtime** (not build-time). The `define` replacements handle build-time; the window assignment handles runtime |
 | `define.global = 'globalThis'` | Some CJS deps use `global` instead of `globalThis` |
@@ -171,9 +145,7 @@ export default defineConfig({
 | Running `pnpm install` in Cursor sandbox without `required_permissions: ["all"]` | `git init ... Operation not permitted` — pnpm can't clone the GitHub package | Add `required_permissions: ["all"]` to the Shell tool call |
 | Installing `three` without checking `@cognite/reveal`'s peer requirement | `unmet peer three@0.180.0: found 0.177.x` warning; potential rendering bugs | After install, compare versions; `pnpm add three@^<peer-version>` if mismatched |
 | Not adding `ajv` as a direct dependency | `unmet peer ajv@>=8: found 6.x` | `pnpm add ajv` (installs `^8`) in the app |
-| Install real `dune-fe-auth` package | `ReactCurrentDispatcher` undefined — can't be fixed with any bundling strategy | Do not install it; use the shim in Step 2 |
 | `@cognite/dune-industrial-components` in `optimizeDeps.exclude` | `ReactCurrentDispatcher` undefined or `No QueryClient set` | Remove from `exclude` — Vite auto-discovers it |
-| Shim in `optimizeDeps.exclude` | `ReactCurrentDispatcher` undefined | Remove from `exclude` |
 | `vite-plugin-node-polyfills` instead of manual aliases | `Could not resolve "inherits"` on transitive deps | Remove the plugin; add `util`, `assert`, `process` to dependencies and use aliases |
 | `RevealKeepAlive` inside conditional component | `ObjectUnsubscribedError: object unsubscribed` at model load | Move `CacheProvider` + `RevealKeepAlive` to always-mounted app/page level |
 | Inline arrow as `onSelect`/`onLoad` prop | `Maximum update depth exceeded` | `useCallback` at call site; call `onSelect` from `useEffect` inside model browser, never from render |

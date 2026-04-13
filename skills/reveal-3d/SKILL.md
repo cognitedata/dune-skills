@@ -58,69 +58,26 @@ pnpm install --no-frozen-lockfile
 > root has `ajv@6` as a transitive dep. Without a direct `ajv@^8` in the app, pnpm
 > picks up the root's v6 and you get a peer warning that can cause schema validation failures.
 
-> Do **not** install `dune-fe-auth` as a real package. Its bundled code calls
-> `React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher`,
-> which was removed in React 19. Dune monorepos use React 19 — loading the real
-> `dune-fe-auth` crashes on every bundling strategy. Instead, create a shim (Step 2).
-
 > Do **not** install `vite-plugin-node-polyfills`. It introduces a different set of
 > transitive-dep conflicts. Use explicit `process`, `util`, `assert` package aliases instead.
 
 ---
 
-## Step 2 — Create the dune-fe-auth shim AND wire the alias (do both now)
+## Step 2 — Vite config
 
-`@cognite/dune-industrial-components/reveal` imports `useCDF` from `dune-fe-auth` at
-runtime. Without the alias the app throws:
-`Could not resolve "dune-fe-auth" imported by "@cognite/dune-industrial-components"`
-
-**2a — create the shim file:**
-
-```ts
-// src/dune-fe-auth-shim.ts
-// useDune and useCDF have identical signatures: { sdk, isLoading, error }
-export { useDune as useCDF } from '@cognite/dune';
-```
-
-**2b — add the alias to `vite.config.ts` immediately (do not defer to Step 3):**
-
-```ts
-resolve: {
-  alias: {
-    'dune-fe-auth': path.resolve(__dirname, 'src/dune-fe-auth-shim.ts'),
-    // ... other aliases
-  }
-}
-```
-
-**Verify before continuing:**
-```bash
-grep -r "dune-fe-auth" vite.config.ts   # must print the alias line
-ls src/dune-fe-auth-shim.ts             # must exist
-```
-
-If either check fails, fix it before moving on. Do **not** skip to Step 3 and plan to
-"add it later" — the error only appears at browser runtime, not at build time, so it is
-easy to miss until the app first loads.
-
----
-
-## Step 3 — Vite config
-
-Read [vite-config.md](vite-config.md) for the complete `vite.config.ts`. Apply it verbatim.
+Read [vite-config.md](references/vite-config.md) for the complete `vite.config.ts`. Apply it verbatim.
 
 Key points:
 
-- **`dune-fe-auth` alias → shim** — intercepts every internal import, serves `useDune` as `useCDF`, no version conflict
 - **`resolve.dedupe` includes `react`, `react-dom`, `react/jsx-runtime`, `three`** — pnpm symlinks can create separate module instances in a monorepo; `dedupe` forces one copy
 - **Manual `util/`, `assert/`, `process/browser` aliases** — not a plugin. These handle the top-level imports. The `process`, `util`, `assert` npm packages must be in `dependencies` (Step 1)
 - **`optimizeDeps.include` lists `process`, `util`, `assert`, `three`, `@cognite/reveal`** — pre-bundles them so esbuild handles CJS→ESM; Vite cannot auto-discover bare polyfill imports
 - **`worker.format: 'es'`** — Reveal spawns ES module web workers; without this they fail silently
-- **Never put `@cognite/dune-industrial-components` or `dune-fe-auth` in `optimizeDeps.exclude`** — forces raw ESM, re-introduces React duplication even with dedupe
+- **Never put `@cognite/dune-industrial-components` in `optimizeDeps.exclude`** — forces raw ESM, re-introduces React duplication even with dedupe
 
 ---
 
-## Step 4 — main.tsx
+## Step 3 — main.tsx
 
 Add the `process` polyfill as the **very first two lines** — before any import, before React:
 
@@ -155,7 +112,7 @@ Keep `DuneAuthProvider` from `@cognite/dune` as the auth provider — **not** `C
 
 ---
 
-## Step 5 — Provider placement (critical)
+## Step 4 — Provider placement (critical)
 
 **Getting this wrong causes `ObjectUnsubscribedError: object unsubscribed` at model load time.**
 
@@ -194,234 +151,34 @@ viewer disposal when keepAlive context is present.
 
 ---
 
-## Step 6 — Pre-flight check (required before writing components)
+## Step 5 — Implementation
 
-Run these two checks. If either fails, fix it now — the error only surfaces at browser
-runtime and is easy to miss until the app first loads:
+**Decide the pattern first — before reading any code.**
 
-```bash
-grep "dune-fe-auth" vite.config.ts   # must print the alias line
-ls src/dune-fe-auth-shim.ts          # must exist
-```
+Use **Pattern B (model browser)** unless you can answer YES to all three of these:
+1. The app already has a `DMInstanceRef` in scope — passed in as a prop or route param, not something to be fetched
+2. The user has confirmed that instance has `CogniteVisualizable.object3D → CogniteCADNode` linkage in their CDF data model
+3. The user explicitly asked for FDM-linked 3D, not just "show a 3D viewer"
 
-Expected output:
-```
-'dune-fe-auth': path.resolve(__dirname, 'src/dune-fe-auth-shim.ts'),
-src/dune-fe-auth-shim.ts
-```
+If any answer is NO or uncertain — use Pattern B. It works with every CDF project that has 3D models, requires zero FDM setup, and is much easier to debug. Pattern A silently renders nothing when FDM linkage is missing.
 
-If the alias is missing, add it to `resolve.alias` in `vite.config.ts` now (see Step 2).
+**Pattern B:** Read the "Pattern B (default)" section of [references/implementation.md](references/implementation.md).
 
----
+**Pattern A (only if gate above passed):** Read the "Pattern A (fallback)" section of [references/implementation.md](references/implementation.md).
 
-## Step 7 — Implementation
+**Two files to create:** `src/components/ViewerContent.tsx` (canvas only, no providers) and `src/App.tsx` (owns all providers + model selection logic).
 
-**Default pattern: Pattern B (model browser — auto-loads models).**
-Uses `sdk.models3D.list()` to auto-discover all 3D models in the CDF project and
-`sdk.revisions3D.list()` to pick the best revision automatically. No manual IDs or
-FDM linkage needed — works with any CDF project that has 3D models. Always start here.
+**Critical rules that both patterns share:**
 
-Use **Pattern A (FDM)** only when the app receives a `DMInstanceRef` and the instance
-has `CogniteVisualizable.object3D → CogniteCADNode` linkage.
-Full Pattern A code is in [references/implementation.md](references/implementation.md).
-
-Two files to create: a canvas-only content component, and the App that owns all providers.
-
-### `src/components/ViewerContent.tsx` — canvas only, no providers (Pattern B)
-
-```tsx
-import { useCallback, useMemo } from 'react';
-import {
-  Reveal3DResources,
-  RevealCanvas,
-  type AddCadResourceOptions,
-} from '@cognite/dune-industrial-components/reveal';
-
-export interface ViewerContentProps {
-  modelId: number;
-  revisionId: number;
-}
-
-/**
- * Canvas-only — no CacheProvider, RevealKeepAlive, or RevealProvider here.
- * All providers live in App.tsx so React StrictMode double-invoke completes
- * at startup before any model loading starts.
- */
-export function ViewerContent({ modelId, revisionId }: ViewerContentProps) {
-  // AddCadResourceOptions is just { modelId, revisionId } — no `type` field.
-  // Do NOT use { type: 'cad', modelId, revisionId } — that is TaggedAddResourceOptions.
-  const resources = useMemo<AddCadResourceOptions[]>(
-    () => [{ modelId, revisionId }],
-    [modelId, revisionId]
-  );
-  const onLoaded = useCallback(() => {}, []);
-
-  return (
-    <RevealCanvas>
-      <Reveal3DResources resources={resources} onModelsLoaded={onLoaded} />
-    </RevealCanvas>
-  );
-}
-```
-
-### `src/App.tsx` — owns all providers + model browser (Pattern B)
-
-```tsx
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import * as THREE from 'three';
-import { useDune } from '@cognite/dune';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import type { Model3D, Revision3D } from '@cognite/sdk';
-import {
-  CacheProvider,
-  RevealKeepAlive,
-  RevealProvider,
-  type ViewerOptions,
-} from '@cognite/dune-industrial-components/reveal';
-
-const ViewerContent = lazy(() =>
-  import('./components/ViewerContent').then((m) => ({ default: m.ViewerContent }))
-);
-
-const BG = new THREE.Color(0x1a1a2e);
-const VIEWER_OPTIONS: ViewerOptions = {
-  loadingIndicatorStyle: { placement: 'topRight', opacity: 0.1 },
-  antiAliasingHint: 'msaa2+fxaa',
-  ssaoQualityHint: 'medium',
-};
-
-type SelectedModel = { modelId: number; revisionId: number };
-
-function useModels(query?: string) {
-  const { sdk } = useDune();
-  return useInfiniteQuery({
-    queryKey: ['3d-models', query],
-    queryFn: ({ pageParam }: { pageParam?: string }) =>
-      sdk.models3D.list({ limit: 1000, cursor: pageParam }) as Promise<{
-        items: Model3D[];
-        nextCursor?: string;
-      }>,
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page) => page.nextCursor,
-    enabled: !!sdk,
-    select: useCallback(
-      (data: any) => ({
-        ...data,
-        pages: data.pages.map((p: any) => ({
-          ...p,
-          items: p.items
-            .map((m: Model3D) => ({ ...m, name: m.name.trim() }))
-            .filter((m: Model3D) =>
-              query ? m.name.toLowerCase().includes(query.toLowerCase()) : true
-            ),
-        })),
-      }),
-      [query]
-    ),
-  });
-}
-
-function useBestRevision(modelId?: number) {
-  const { sdk } = useDune();
-  return useQuery({
-    queryKey: ['3d-revisions', modelId],
-    queryFn: async () => {
-      if (!modelId) return null;
-      const all: Revision3D[] = await sdk.revisions3D
-        .list(modelId)
-        .autoPagingToArray({ limit: -1 });
-      const published = all.filter((r) => r.published);
-      const candidates = published.length ? published : all;
-      return candidates.reduce((best, cur) =>
-        best.createdTime > cur.createdTime ? best : cur
-      ) ?? null;
-    },
-    enabled: !!sdk && !!modelId,
-  });
-}
-
-// RULE 1: onSelect MUST be wrapped in useCallback at the call site.
-//   An inline arrow `(m) => setSelected(m)` creates a new reference every render.
-//   The useEffect([..., onSelect]) below fires on every render → infinite loop.
-//
-// RULE 2: call onSelect from useEffect, NOT during render.
-//   An if-block during render calling onSelect also causes infinite loops.
-
-function ModelBrowser({ onSelect }: { onSelect: (m: SelectedModel) => void }) {
-  const [query, setQuery] = useState('');
-  const [pendingId, setPendingId] = useState<number>();
-  const { data } = useModels(query);
-  const { data: revision } = useBestRevision(pendingId);
-  const models = data?.pages.flatMap((p) => p.items) ?? [];
-
-  useEffect(() => {
-    if (revision && pendingId) {
-      onSelect({ modelId: pendingId, revisionId: revision.id });
-    }
-  }, [revision, pendingId, onSelect]);
-
-  return (
-    <div>
-      <input
-        placeholder="Search models…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      {models.map((m) => (
-        <button key={m.id} onClick={() => setPendingId(m.id)}>
-          {m.name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-export default function App() {
-  const { sdk: client, isLoading } = useDune();
-  // Memoize on sdk.project so RevealProvider only remounts on project change
-  const sdk = useMemo(() => client, [client.project]);
-  const [selected, setSelected] = useState<SelectedModel | null>(null);
-
-  // useCallback is mandatory — see ModelBrowser RULE 1 above
-  const handleSelect = useCallback((m: SelectedModel) => {
-    setSelected((prev) => (!prev || prev.modelId !== m.modelId ? m : prev));
-  }, []);
-
-  if (isLoading) return <div>Connecting to CDF…</div>;
-
-  return (
-    <CacheProvider>
-      <RevealKeepAlive>
-        <div style={{ display: 'flex', height: '100vh' }}>
-          <aside style={{ width: 280, overflowY: 'auto' }}>
-            <ModelBrowser onSelect={handleSelect} />
-          </aside>
-          <div style={{ flex: 1, position: 'relative' }}>
-            {selected && (
-              <RevealProvider sdk={sdk} color={BG} viewerOptions={VIEWER_OPTIONS}>
-                <Suspense fallback={<div>Loading viewer…</div>}>
-                  <ViewerContent
-                    modelId={selected.modelId}
-                    revisionId={selected.revisionId}
-                  />
-                </Suspense>
-              </RevealProvider>
-            )}
-          </div>
-        </div>
-      </RevealKeepAlive>
-    </CacheProvider>
-  );
-}
-```
-
-> **`onSelect` must be wrapped in `useCallback` at the call site** — an inline arrow
-> `(m) => setSelected(m)` creates a new reference every render, which triggers the
-> `useEffect([..., onSelect])` above on every render → infinite loop.
+- `ViewerContent` must contain **no providers** — `CacheProvider`, `RevealKeepAlive`, and `RevealProvider` all live in `App.tsx` (see Step 5 for why)
+- `resources` prop for `Reveal3DResources` must be `useMemo`'d; `onModelsLoaded` must be `useCallback`'d — inline values cause infinite model reload loops
+- `onSelect`/`onLoad` callbacks passed into child components must be `useCallback`'d at the call site, and called from `useEffect` inside the child — not during render
+- `sdk` passed to `RevealProvider` must be `useMemo`'d keyed on `client.project`
+- Lazy-load `ViewerContent` with `React.lazy` + `Suspense` to avoid blocking the initial bundle
 
 ---
 
-## Step 8 — Container height
+## Step 6 — Container height
 
 `RevealCanvas` fills its container with `width: 100%; height: 100%`. The parent **must have an explicit height**:
 
@@ -443,9 +200,6 @@ export default function App() {
 | `pnpm install` hangs for minutes with no output | Same GitHub package sandbox issue — pnpm is stuck waiting on a blocked syscall | Kill the process, re-run with `required_permissions: ["all"]` |
 | `unmet peer three@0.180.0: found 0.177.0` (or similar version) | `@cognite/reveal` requires a specific `three` version; `pnpm add three` installs latest which may differ | Check `@cognite/reveal`'s peerDependencies, then `pnpm add three@^<required>` + reinstall |
 | `unmet peer ajv@>=8: found 6.x` | Monorepo root has `ajv@6`; app needs `ajv@^8` for `@cognite/dune-industrial-components` | `pnpm add ajv` in the app (adds `^8`) |
-| `Could not resolve "dune-fe-auth"` | Real `dune-fe-auth` not installed (correct) but alias missing | Add `'dune-fe-auth': path.resolve(__dirname, 'src/dune-fe-auth-shim.ts')` to `resolve.alias` |
-| `ReactCurrentDispatcher` is undefined | Real `dune-fe-auth` loaded — its React 18 internal doesn't exist in React 19 | Do **not** install real `dune-fe-auth`; use the shim (Step 2) |
-| `ReactCurrentDispatcher` even with shim | `@cognite/dune-industrial-components` or shim in `optimizeDeps.exclude` | Remove from `exclude`; let Vite pre-bundle them together |
 | `ObjectUnsubscribedError: object unsubscribed` | `RevealKeepAlive` inside conditional component | Move `CacheProvider` + `RevealKeepAlive` to always-mounted App level |
 | `Maximum update depth exceeded` | Inline `onLoad`/`onSelect` callback `(t) => setState(t)` re-creates every render | `useCallback((t) => setState(t), [])` at the call site; model browser must call `onSelect` from `useEffect`, not render phase |
 | `Maximum update depth exceeded` (variant) | `onSelect`/`onReady` called during render in an `if`-block instead of a `useEffect` | Move the call into `useEffect([revision, pendingId, onSelect])` |

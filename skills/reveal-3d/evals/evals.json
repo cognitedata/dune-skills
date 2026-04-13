@@ -4,23 +4,27 @@
     {
       "id": 1,
       "prompt": "I have a Dune app at apps/my-app. Add a 3D viewer page where I can browse and load CAD models from my CDF project. Add a button on the main page to reach it.",
-      "expected_output": "A working 3D viewer page with model browsing (sdk.models3D.list), Vite configured correctly for Reveal using vite-plugin-node-polyfills, process polyfill in main.tsx, React 18 pinned, and all provider nesting correct.",
+      "expected_output": "A working 3D viewer page with model browsing (sdk.models3D.list), Vite configured correctly for Reveal with manual util/assert/process package aliases (NOT vite-plugin-node-polyfills), dune-fe-auth shim, process polyfill in main.tsx, DuneAuthProvider from @cognite/dune as auth provider, and all provider nesting correct.",
       "files": [],
       "assertions": [
         {
-          "text": "@cognite/reveal, three, @cognite/dune-industrial-components, and dune-fe-auth are in package.json dependencies",
+          "text": "@cognite/reveal, three, process, util, assert, ajv, and @cognite/dune-industrial-components are in package.json dependencies",
           "type": "content"
         },
         {
-          "text": "react and react-dom are pinned to ^18.x.x in package.json (not ^19)",
+          "text": "vite-plugin-node-polyfills is NOT present in package.json or vite.config.ts",
           "type": "content"
         },
         {
-          "text": "vite-plugin-node-polyfills is in devDependencies and imported/used in vite.config.ts via nodePolyfills()",
+          "text": "vite.config.ts has manual resolve.alias entries for util ('util/'), assert ('assert/'), and process ('process/browser')",
           "type": "content"
         },
         {
-          "text": "vite.config.ts does NOT contain manual util, assert, or process aliases (these are replaced by vite-plugin-node-polyfills)",
+          "text": "src/dune-fe-auth-shim.ts does NOT exist (no longer needed — dune-industrial-components reads sdk from RevealContext directly)",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts resolve.alias does NOT contain a 'dune-fe-auth' entry",
           "type": "content"
         },
         {
@@ -36,11 +40,11 @@
           "type": "content"
         },
         {
-          "text": "vite.config.ts has optimizeDeps.include with react, react-dom, @tanstack/react-query, three, @cognite/reveal, and dune-fe-auth",
+          "text": "vite.config.ts has optimizeDeps.include with process, util, assert, three, @cognite/reveal, react, react-dom, and @tanstack/react-query",
           "type": "content"
         },
         {
-          "text": "vite.config.ts does NOT have @cognite/dune-industrial-components or dune-fe-auth in optimizeDeps.exclude",
+          "text": "vite.config.ts does NOT have @cognite/dune-industrial-components in optimizeDeps.exclude",
           "type": "content"
         },
         {
@@ -48,7 +52,7 @@
           "type": "content"
         },
         {
-          "text": "main.tsx uses CDFAuthenticationProvider from dune-fe-auth (not DuneAuthProvider from @cognite/dune)",
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider from dune-fe-auth)",
           "type": "content"
         },
         {
@@ -128,15 +132,15 @@
           "type": "content"
         },
         {
-          "text": "main.tsx uses CDFAuthenticationProvider from dune-fe-auth",
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider from dune-fe-auth)",
           "type": "content"
         },
         {
-          "text": "vite.config.ts uses vite-plugin-node-polyfills and does not have manual util/assert/process aliases",
+          "text": "vite.config.ts uses manual util/assert/process aliases and does NOT use vite-plugin-node-polyfills",
           "type": "content"
         },
         {
-          "text": "react and react-dom are pinned to ^18.x.x in package.json",
+          "text": "src/dune-fe-auth-shim.ts does NOT exist and vite.config.ts resolve.alias has no 'dune-fe-auth' entry",
           "type": "content"
         }
       ]
@@ -172,15 +176,11 @@
           "type": "content"
         },
         {
-          "text": "vite.config.ts has worker: { format: 'es' } and uses vite-plugin-node-polyfills",
+          "text": "vite.config.ts has worker: { format: 'es' } and uses manual util/assert/process aliases (NOT vite-plugin-node-polyfills)",
           "type": "content"
         },
         {
-          "text": "react and react-dom are pinned to ^18.x.x in package.json",
-          "type": "content"
-        },
-        {
-          "text": "main.tsx uses CDFAuthenticationProvider from dune-fe-auth as the auth provider",
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider from dune-fe-auth)",
           "type": "content"
         },
         {
