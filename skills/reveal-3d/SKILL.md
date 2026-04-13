@@ -108,7 +108,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );
 ```
 
-Keep `DuneAuthProvider` from `@cognite/dune` as the auth provider — **not** `CDFAuthenticationProvider` from `dune-fe-auth`.
+Keep `DuneAuthProvider` from `@cognite/dune` as the auth provider — **not** `CDFAuthenticationProvider`.
 
 ---
 

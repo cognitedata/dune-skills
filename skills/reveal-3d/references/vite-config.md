@@ -29,7 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );
 ```
 
-Keep `DuneAuthProvider` from `@cognite/dune`. Do **not** use `CDFAuthenticationProvider` from `dune-fe-auth`.
+Keep `DuneAuthProvider` from `@cognite/dune`. Do **not** use `CDFAuthenticationProvider`.
 
 ---
 

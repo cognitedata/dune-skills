@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "I have a Dune app at apps/my-app. Add a 3D viewer page where I can browse and load CAD models from my CDF project. Add a button on the main page to reach it.",
-      "expected_output": "A working 3D viewer page with model browsing (sdk.models3D.list), Vite configured correctly for Reveal with manual util/assert/process package aliases (NOT vite-plugin-node-polyfills), dune-fe-auth shim, process polyfill in main.tsx, DuneAuthProvider from @cognite/dune as auth provider, and all provider nesting correct.",
+      "expected_output": "A working 3D viewer page with model browsing (sdk.models3D.list), Vite configured correctly for Reveal with manual util/assert/process package aliases (NOT vite-plugin-node-polyfills), process polyfill in main.tsx, DuneAuthProvider from @cognite/dune as auth provider, and all provider nesting correct.",
       "files": [],
       "assertions": [
         {
@@ -52,7 +52,7 @@
           "type": "content"
         },
         {
-          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider from dune-fe-auth)",
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider)",
           "type": "content"
         },
         {
@@ -132,7 +132,7 @@
           "type": "content"
         },
         {
-          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider from dune-fe-auth)",
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider)",
           "type": "content"
         },
         {
@@ -180,7 +180,7 @@
           "type": "content"
         },
         {
-          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider from dune-fe-auth)",
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider)",
           "type": "content"
         },
         {
