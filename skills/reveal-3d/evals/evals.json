@@ -1,0 +1,193 @@
+{
+  "skill_name": "reveal-3d",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Dune app at apps/my-app. Add a 3D viewer page where I can browse and load CAD models from my CDF project. Add a button on the main page to reach it.",
+      "expected_output": "A working 3D viewer page with model browsing (sdk.models3D.list), Vite configured correctly for Reveal with manual util/assert/process package aliases (NOT vite-plugin-node-polyfills), process polyfill in main.tsx, DuneAuthProvider from @cognite/dune as auth provider, and all provider nesting correct.",
+      "files": [],
+      "assertions": [
+        {
+          "text": "@cognite/reveal, three, process, util, assert, ajv, and @cognite/dune-industrial-components are in package.json dependencies",
+          "type": "content"
+        },
+        {
+          "text": "vite-plugin-node-polyfills is NOT present in package.json or vite.config.ts",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts has manual resolve.alias entries for util ('util/'), assert ('assert/'), and process ('process/browser')",
+          "type": "content"
+        },
+        {
+          "text": "src/dune-fe-auth-shim.ts does NOT exist (no longer needed — dune-industrial-components reads sdk from RevealContext directly)",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts resolve.alias does NOT contain a 'dune-fe-auth' entry",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts has resolve.alias.three pointing to node_modules/three/build/three.module.js",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts has worker: { format: 'es' }",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts has resolve.dedupe including react, react-dom, and @tanstack/react-query",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts has optimizeDeps.include with process, util, assert, three, @cognite/reveal, react, react-dom, and @tanstack/react-query",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts does NOT have @cognite/dune-industrial-components in optimizeDeps.exclude",
+          "type": "content"
+        },
+        {
+          "text": "main.tsx starts with import process from 'process'; window.process = process; before any other imports",
+          "type": "content"
+        },
+        {
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider)",
+          "type": "content"
+        },
+        {
+          "text": "CacheProvider and RevealKeepAlive are rendered at the page/app level, NOT inside a conditionally-rendered component",
+          "type": "content"
+        },
+        {
+          "text": "RevealProvider is rendered conditionally (only when a model is selected), inside the stable RevealKeepAlive tree",
+          "type": "content"
+        },
+        {
+          "text": "The canvas content component (RevealCanvas + Reveal3DResources) contains NO provider components",
+          "type": "content"
+        },
+        {
+          "text": "SDK passed to RevealProvider is memoized with useMemo keyed on sdk.project",
+          "type": "content"
+        },
+        {
+          "text": "resources prop for Reveal3DResources is memoized with useMemo",
+          "type": "content"
+        },
+        {
+          "text": "onModelsLoaded callback is memoized with useCallback",
+          "type": "content"
+        },
+        {
+          "text": "The onLoad prop passed to ModelBrowser is wrapped in useCallback (not an inline arrow function)",
+          "type": "content"
+        },
+        {
+          "text": "The viewer container div has an explicit height (e.g. height: '70vh' or h-[65vh])",
+          "type": "content"
+        },
+        {
+          "text": "The canvas content component is lazy-loaded with React.lazy and wrapped in Suspense",
+          "type": "content"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I have an FDM asset with space cdf_idm and externalId pump_001. Add a 3D viewer to my asset detail page that shows the CAD model linked to this asset. The detail page is at src/AssetDetail.tsx.",
+      "expected_output": "A viewer component using useModelsForInstanceQuery to discover linked 3D models, integrated into AssetDetail.tsx with CacheProvider+RevealKeepAlive at the page level and RevealProvider conditionally rendered.",
+      "files": [],
+      "assertions": [
+        {
+          "text": "useModelsForInstanceQuery is imported from @cognite/dune-industrial-components/reveal",
+          "type": "content"
+        },
+        {
+          "text": "A DMInstanceRef with space 'cdf_idm' and externalId 'pump_001' is passed to useModelsForInstanceQuery",
+          "type": "content"
+        },
+        {
+          "text": "CacheProvider and RevealKeepAlive are at the AssetDetail page level (not inside the conditional viewer area)",
+          "type": "content"
+        },
+        {
+          "text": "RevealProvider is conditionally rendered (only when models data exists)",
+          "type": "content"
+        },
+        {
+          "text": "resources is derived from useModelsForInstanceQuery result and memoized with useMemo",
+          "type": "content"
+        },
+        {
+          "text": "onModelsLoaded is wrapped in useCallback",
+          "type": "content"
+        },
+        {
+          "text": "SDK is memoized with useMemo keyed on sdk.project",
+          "type": "content"
+        },
+        {
+          "text": "The viewer container has an explicit height",
+          "type": "content"
+        },
+        {
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider)",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts uses manual util/assert/process aliases and does NOT use vite-plugin-node-polyfills",
+          "type": "content"
+        },
+        {
+          "text": "src/dune-fe-auth-shim.ts does NOT exist and vite.config.ts resolve.alias has no 'dune-fe-auth' entry",
+          "type": "content"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add a full-screen 3D viewer that loads model ID 206509079235820 revision 576781257263693. Put it at a /viewer route.",
+      "expected_output": "A full-screen viewer component using direct modelId/revisionId (Pattern B), accessible at /viewer, with correct provider nesting and Vite config.",
+      "files": [],
+      "assertions": [
+        {
+          "text": "Reveal3DResources receives a resources array containing modelId 206509079235820 and revisionId 576781257263693",
+          "type": "content"
+        },
+        {
+          "text": "The resources array is memoized with useMemo",
+          "type": "content"
+        },
+        {
+          "text": "onModelsLoaded is wrapped in useCallback",
+          "type": "content"
+        },
+        {
+          "text": "CacheProvider and RevealKeepAlive are at the viewer page level, not co-located with RevealProvider in the same conditional block",
+          "type": "content"
+        },
+        {
+          "text": "The viewer container is full-screen (height: 100vh or h-screen or equivalent)",
+          "type": "content"
+        },
+        {
+          "text": "A route is configured at /viewer",
+          "type": "content"
+        },
+        {
+          "text": "vite.config.ts has worker: { format: 'es' } and uses manual util/assert/process aliases (NOT vite-plugin-node-polyfills)",
+          "type": "content"
+        },
+        {
+          "text": "main.tsx uses DuneAuthProvider from @cognite/dune as the auth provider (NOT CDFAuthenticationProvider)",
+          "type": "content"
+        },
+        {
+          "text": "The canvas content is lazy-loaded with React.lazy and Suspense",
+          "type": "content"
+        }
+      ]
+    }
+  ]
+}
