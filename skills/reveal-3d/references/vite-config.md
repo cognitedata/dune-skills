@@ -2,40 +2,22 @@
 
 ## src/main.tsx — process polyfill must be the very first two lines
 
+Prepend these two lines before any other import:
+
 ```tsx
 import process from 'process';
 (window as unknown as Record<string, unknown>).process = process;
 
-// All other imports below — order matters, polyfill must run first
-import { DuneAuthProvider } from '@cognite/dune';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import './styles.css';
-
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, gcTime: 10 * 60 * 1000 } },
-});
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <DuneAuthProvider>
-        <App />
-      </DuneAuthProvider>
-    </QueryClientProvider>
-  </React.StrictMode>
-);
+// all other existing imports below ↓
 ```
 
-Keep `DuneAuthProvider` from `@cognite/dune`. Do **not** use `CDFAuthenticationProvider`.
+The rest of `main.tsx` stays as-is. Order matters — the polyfill must run before any module that reads `process`.
 
 ---
 
 ## vite.config.ts — standalone config (not mergeConfig)
 
-New Dune apps generated with `pnpm new:app` have a standalone `vite.config.ts`.
+Dune apps use a standalone `vite.config.ts` (not a shared base config from the monorepo root).
 Replace the file entirely with the following:
 
 ```typescript

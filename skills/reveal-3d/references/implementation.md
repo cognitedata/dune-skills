@@ -6,7 +6,9 @@ Full copy-paste ready implementations. **Pattern B (model browser — auto-loads
 
 ## Pattern B (default) — model browser, auto-discovers models via `sdk.models3D.list()`
 
-Canvas-only component — no providers. `CacheProvider`, `RevealKeepAlive`, and `RevealProvider` live in App.tsx.```tsx
+Canvas-only component — no providers. `CacheProvider`, `RevealKeepAlive`, and `RevealProvider` live in App.tsx.
+
+```tsx
 import { useCallback, useMemo } from 'react';
 import {
   Reveal3DResources,
