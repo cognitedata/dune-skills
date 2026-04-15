@@ -61,6 +61,7 @@ Voice is consistent; tone adapts to the user's emotional state.
 ### Abbreviations and punctuation
 
 - No Latin abbreviations: use "for example" not "e.g.", "and more" not "etc."
+- Define acronyms and technical terms when first used (unless writing for technical personas)
 - No ampersands (&): use "and" — including in headings
 - **Oxford comma**: "apples, oranges, and pears"
 - No exclamation marks in UI copy
@@ -204,6 +205,9 @@ Example: "Extractor disconnected. Check your network and reconnect."
 **Time unit abbreviations** (no periods; same form singular/plural):
 ms, s, min, hr, d, wk, mo, yr
 
+**Day abbreviations** (3 chars for i18n):
+Mon, Tue, Wed, Thu, Fri, Sat, Sun
+
 **Month abbreviations** (4 chars for i18n):
 Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
 
@@ -212,6 +216,7 @@ Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
 - Keep sentences short with the subject near the start — compound clauses increase translation cost
 - Maintain consistent terminology and capitalization across strings (critical for translation memory)
 - No Latin abbreviations in translatable strings: "for example" not "e.g.", "and more" not "etc."
+- Avoid idioms and cultural references
 - No ampersands: use "and"
 - Small words (a, the, that, is): include in prose; may omit only in space-constrained labels and CTAs
 
