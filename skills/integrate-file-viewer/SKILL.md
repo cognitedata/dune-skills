@@ -38,7 +38,7 @@ Read these files before touching anything:
 
 The consumer app must configure the PDF.js worker. This ensures the worker version matches the `pdfjs-dist` version shipped with your `react-pdf` install.
 
-Add this setup **in the same file** where `CogniteFileViewer` is used (module execution order matters):
+Create a **single centralized config file** at `src/lib/pdfjs-config.ts`:
 
 ```tsx
 import { pdfjs } from 'react-pdf';
@@ -48,6 +48,15 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 ```
+
+Then import it as a side-effect in each component that uses `CogniteFileViewer`:
+
+```tsx
+import '@/lib/pdfjs-config';
+```
+
+> **Do NOT duplicate the worker config inline in each component.** Centralizing it in one file avoids drift and makes updates easier.
+
 
 > **pnpm users:** pnpm's strict linking may prevent the browser from resolving `pdfjs-dist`. Either add `pdfjs-dist` as a direct dependency (`pnpm add pdfjs-dist`), or add `public-hoist-pattern[]=pdfjs-dist` to `.npmrc`.
 
@@ -261,6 +270,73 @@ onAnnotationClick={(annotation) => {
 
 ---
 
+## CI/CD — Authenticating to the private GitHub dependency
+
+`@cognite/dune-industrial-components` is installed from a **private GitHub repo** (`github:cognitedata/dune-industrial-components#semver:*`). CI runners cannot clone it without explicit authentication.
+
+### Setup
+
+1. **Create a classic Personal Access Token (PAT)** with the `repo` scope that has access to `cognitedata/dune-industrial-components`. Fine-grained PATs may not work if the org hasn't opted in.
+
+2. **Authorize the PAT for your GitHub org's SSO** — go to the PAT settings page, click "Configure SSO", and authorize for `cognitedata`. Without this step the PAT will get 403s.
+
+3. **Store the PAT as a repository secret** named `GH_PRIVATE_REPO_TOKEN`:
+   ```bash
+   gh secret set GH_PRIVATE_REPO_TOKEN --repo cognitedata/<your-repo>
+   ```
+   Or add it via the GitHub UI: repo Settings > Secrets and variables > Actions.
+
+4. **Add a git config step** to each CI workflow, after checkout but before `pnpm install`:
+   ```yaml
+   - name: Configure git auth for private GitHub packages
+     run: git config --global url."https://x-access-token:${{ secrets.GH_PRIVATE_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
+   ```
+   This rewrites pnpm's SSH-style `git@github.com:` clone URLs to authenticated HTTPS, so the PAT is used for all GitHub git operations.
+
+5. **If using reusable workflows** (e.g. a deploy workflow that calls a test workflow via `workflow_call`), add `secrets: inherit` so the called workflow receives the PAT:
+   ```yaml
+   jobs:
+     test:
+       uses: ./.github/workflows/test.yaml
+       secrets: inherit
+   ```
+
+### What does NOT work
+
+- **`github.token` / `GITHUB_TOKEN`** — only has access to the current repository, not other private repos in the org.
+- **`actions/checkout` with `token` + `persist-credentials`** — the extraheader it sets only covers the checkout repo, not other repos that pnpm needs to clone.
+- **Chained `insteadOf` rewrites** (SSH→HTTPS then HTTPS→authenticated HTTPS) — git applies these sequentially and the second rewrite can fail to match after `actions/checkout` sets local config that takes precedence.
+
+The simplest approach is a **single `insteadOf`** that rewrites `git@github.com:` directly to `https://x-access-token:<PAT>@github.com/`.
+
+---
+
+## Testing — Stubbing CogniteFileViewer in vitest
+
+`CogniteFileViewer` depends on browser APIs and CDF auth that aren't available in the test environment. Stub it out:
+
+1. **Create a stub** at `src/test/stubs/dune-industrial-components-file-viewer.ts`:
+   ```ts
+   export const CogniteFileViewer = () => null;
+   ```
+
+2. **Add an alias** in `vitest.config.ts` so the import resolves to the stub:
+   ```ts
+   resolve: {
+     alias: {
+       '@cognite/dune-industrial-components/file-viewer': path.resolve(
+         __dirname,
+         './src/test/stubs/dune-industrial-components-file-viewer.ts',
+       ),
+     },
+   },
+   ```
+
+This ensures tests that render components containing `CogniteFileViewer` don't fail on missing browser/CDF dependencies.
+
+---
+
+
 ## Common pitfalls
 
 | Problem | Cause | Fix |
@@ -270,3 +346,6 @@ onAnnotationClick={(annotation) => {
 | Annotations never show | `instanceId` is `undefined` — annotation overlay is disabled without it | Use `instanceId` source, or fall back and accept no annotations for classic files |
 | Annotations show but are empty | File has no `CogniteDiagramAnnotation` edges in CDF | Expected — only P&ID/diagram files synced to the data model have annotations |
 | Viewer collapses to zero height | Parent has no explicit height | Set `height` via `style`, `className`, or parent CSS |
+| CI fails with `fatal: Authentication failed` cloning `dune-industrial-components` | `GITHUB_TOKEN` can't access other private repos | Use a classic PAT with `repo` scope stored as `GH_PRIVATE_REPO_TOKEN` — see CI/CD section |
+| CI fails with `could not read Username for 'https://github.com'` | SSH→HTTPS rewrite works but no credentials for HTTPS | Use a single `insteadOf` that includes the PAT in the URL — see CI/CD section |
+| PAT returns 403 despite having `repo` scope | PAT not authorized for org SSO | Go to PAT settings, click "Configure SSO", authorize for `cognitedata` |
