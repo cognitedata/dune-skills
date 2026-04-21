@@ -25,6 +25,7 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **setup-python-tools** | Adds Pyodide-based Python tool execution |
 | **code-quality** | Reviews Dune apps for code quality, maintainability, and clean code issues |
 | **correctness-and-error-handling** | Reviews for bugs, missing error states, unhandled rejections, and edge cases |
+| **context-sharing** | Commit-time context window / handoff doc — what changed, why, decisions, validation, reproduction |
 | **dm-limits-and-best-practices** | CDF Data Modeling API best practices — concurrency, pagination, batching |
 | **dune-app-review** | Runs the official Dune app platform review flow against a local app workspace and writes artifacts under `reviews/dune-app-review/feedback-round-N/` |
 | **integrate-file-viewer** | Integrates CogniteFileViewer to preview CDF files (PDFs, images, text) |
