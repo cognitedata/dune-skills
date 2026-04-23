@@ -24,6 +24,7 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **integrate-atlas-chat** | Adds streaming Atlas Agent chat UI to a Dune app |
 | **setup-python-tools** | Adds Pyodide-based Python tool execution |
 | **code-quality** | Reviews Dune apps for code quality, maintainability, and clean code issues |
+| **conventional-commits** | Commit messages following Conventional Commits 1.0.0 — frequent, focused, PR-friendly history |
 | **correctness-and-error-handling** | Reviews for bugs, missing error states, unhandled rejections, and edge cases |
 | **dm-limits-and-best-practices** | CDF Data Modeling API best practices — concurrency, pagination, batching |
 | **dune-app-review** | Runs the official Dune app platform review flow against a local app workspace and writes artifacts under `reviews/dune-app-review/feedback-round-N/` |
