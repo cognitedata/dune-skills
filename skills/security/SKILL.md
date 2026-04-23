@@ -54,7 +54,7 @@ For each raw CDF call found, read the surrounding code to understand what CDF re
 
 | Pattern | Action |
 |---------|--------|
-| `fetch()` or `axios` call to a CDF URL (`*.cognitedata.com`, `/api/v1/projects/*`) | **Rewrite** to use the Cognite SDK (`sdk.assets.list(...)`, `sdk.timeseries.retrieve(...)`, `client.instances.search(...)`, etc.) |
+| `fetch()` or `axios` call to a CDF URL (`*.cognitedata.com`, `/api/v1/projects/*`) | **Rewrite** to use the Cognite SDK (`cognite.files.getDownloadUrls(...)`, `cognite.timeseries.retrieve(...)`, `client.instances.search(...)`, etc.) |
 | Custom `Authorization` header with a CDF token | **Remove** — the SDK handles auth automatically |
 | WebSocket connection to CDF endpoints | **Rewrite** to use SDK streaming methods |
 | Proxy endpoint that forwards to CDF internally | **Rewrite** the proxy to use the SDK internally |
@@ -64,7 +64,7 @@ After rewriting all CDF calls, remove any `axios` or `fetch`-related imports tha
 
 ### What is acceptable
 
-- All CDF reads/writes through `sdk.assets.*`, `sdk.timeseries.*`, `client.instances.*`, etc.
+- All CDF reads/writes through `sdk.files.*`, `sdk.timeseries.*`, `client.instances.*`, etc.
 - Non-CDF network calls that are:
   - To known static asset hosts (CDNs, image services)
   - To documented third-party APIs required by the product
