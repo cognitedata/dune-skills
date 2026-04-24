@@ -5,14 +5,14 @@ description: >-
   navigation bar — breadcrumbs, optional center Tabs or Segmented control, right
   utility strip (Share, notifications, theme menu, Atlas, user Avatar), and
   light/dark theme switching. Use when adding a topbar, app header, navigation
-  bar, breadcrumbs, or theme switcher to a Dune or Fusion app; replacing the
-  deprecated add-navigation skill; or scaffolding a new Dune/Fusion application.
+  bar, breadcrumbs, or theme switcher to a Dune or Fusion app, or when
+  scaffolding a new Dune/Fusion application.
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash
 ---
 
 # Topbar
 
-`@aura/topbar` is the single, compliant top navigation bar for every authenticated Dune/Fusion app. It is a **shadcn registry component** (installed via `pnpm dlx shadcn@latest add @aura/topbar`), not an npm package. Replaces the deprecated `add-navigation` skill (`@cognite/dune-industrial-components/navigation`).
+`@aura/topbar` is the single, compliant top navigation bar for every authenticated Dune/Fusion app. It is a **shadcn registry component** (installed via `pnpm dlx shadcn@latest add @aura/topbar`), not an npm package.
 
 - **Storybook:** https://cognitedata.github.io/aura/storybook/?path=/docs/primitives-topbar--docs
 - **Full rules:** [RULES.md](RULES.md) · **Interview:** [INTERVIEW.md](INTERVIEW.md) · **Install + code:** [IMPLEMENTATION.md](IMPLEMENTATION.md)
@@ -89,4 +89,3 @@ Verify before finishing (see [RULES.md §12](RULES.md) for the full enforcement 
 - [ ] Right strip order when used: **Share → Notifications → Theme → Atlas → user Avatar**; Share/Notifications/Theme as **ghost small**, Atlas as **secondary small** with leading icon + "Atlas"
 - [ ] Theme: **sun** in light mode, **moon** in dark mode; Menu with Light/Dark rows + checkmark on active; wired to `document.documentElement`
 - [ ] `tailwind.config` has `darkMode: 'class'`
-- [ ] `add-navigation` (`@cognite/dune-industrial-components/navigation`) removed if previously present
