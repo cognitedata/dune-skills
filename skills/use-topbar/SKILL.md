@@ -2,16 +2,18 @@
 name: use-topbar
 description: >-
   Wires the Aura Topbar (@aura/topbar) into a Dune or Fusion app as the single
-  top navigation bar with breadcrumbs, optional middle metadata, right-slot
-  actions, and a built-in dark mode toggle. Use when adding a topbar, top
-  navigation bar, app chrome, navigation header, breadcrumbs, or dark mode to a
-  Dune app. Also use when replacing or deprecating the add-navigation skill, or
-  when the user mentions topbar, Topbar, top nav, app header, or dark mode
-  toggle in a Dune or Fusion app context. Also use when the user is starting,
-  building, creating, or setting up a new Dune application, Fusion app, or
-  Dune-based project — including any mention of "new Dune app", "Dune
-  application", "building a Dune app", "starting a Fusion app", or any request
-  to scaffold, wire up, or begin work on a Dune or Fusion application.
+  top navigation bar with breadcrumbs, optional left inline metadata after the
+  breadcrumb, optional center Tabs or Segmented control (small), and a right
+  utility strip (Share, notifications, theme menu, Atlas, user Avatar) with
+  per-control visibility. Use when adding a topbar, top navigation bar, app
+  chrome, navigation header, breadcrumbs, or theme switching to a Dune app.
+  Also use when replacing or deprecating the add-navigation skill, or when the
+  user mentions topbar, Topbar, top nav, app header, or theme switcher in a
+  Dune or Fusion app context. Also use when the user is starting, building,
+  creating, or setting up a new Dune application, Fusion app, or Dune-based
+  project — including any mention of "new Dune app", "Dune application",
+  "building a Dune app", "starting a Fusion app", or any request to scaffold,
+  wire up, or begin work on a Dune or Fusion application.
 allowed-tools: Read, Glob, Grep, Write, Edit, Shell
 ---
 
@@ -72,9 +74,9 @@ Before asking any questions, read:
 
 - `package.json` — package manager, existing UI deps, existing `@aura/topbar`
 - `src/App.tsx` (or main layout file) — routing setup, existing dark mode hook/context
-- Any Dune/Fusion app config (`app.config.ts`, `fusion.config.ts`, manifest files) — `displayName`, `name`, `icon` fields
+- Any Dune/Fusion app config (`app.config.ts`, `fusion.config.ts`, manifest fields) — `displayName`, `name`, and any **app mark** / icon / branding used for the left `Avatar`
 
-Note what you find. If app name, icon, or a dark mode hook already exists, apply those as defaults and skip the corresponding interview questions. State what was inferred.
+Note what you find. If app name, branding, or a theme hook already exists, apply those as defaults and skip the corresponding interview questions. State what was inferred.
 
 ---
 
@@ -89,59 +91,63 @@ Ask **one question at a time** and wait for the answer. Skip only questions that
 Use this diagram to orient yourself and the user throughout the interview:
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│  [Icon]  [App Name]  >  [Object ▾]  [metadata]  │  [Tab 1]  [Tab 2]  [Tab 3]  │  [+ Action]  │ ⚙🔔🔗☀/🌙👤 │
-│  ←─── Left: icon + breadcrumb + metadata ──────  │  ←── Middle: navigation ──→ │  ←─ Actions  │  System   │
-└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [App Avatar] [App] > [Object▾] metadata…  │  (optional) Tabs or Segmented — sm  │ Share Bell Theme Atlas User │
+│ ←── Left: fjord Avatar + breadcrumb + metadata (left-aligned, not centered) ──→ │ ←── Middle ──→ │ ←── Right strip (fixed order) ──→ │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Left section — breadcrumb states:**
 
 ```
-No object open:        [Icon]  My App
-Object open:           [Icon]  My App  >  Root Cause Analysis ▾
-With inline metadata:  [Icon]  My App  >  Root Cause Analysis ▾   Updated 3 hours ago
+No object open:         [App Avatar]  My App
+Object open:            [App Avatar]  My App  >  Root Cause Analysis ▾
+With inline metadata:   [App Avatar]  My App  >  Root Cause Analysis ▾   Updated 3 hours ago
 ```
 
+- Metadata always continues **on the left**, immediately after the breadcrumb — it is **never** centered in the Topbar.
 - App name clicking navigates to the app's home/root route — but only when an object is open. If no object is open, the app name is not a link.
 - Object name is clickable only when it acts as a dropdown trigger (▾). Each breadcrumb segment is an interactive link that navigates to its route.
 
-**Middle section — navigation tabs (optional):**
+**Middle section — Tabs or Segmented control (optional):**
 
 ```
-[Overview]  [Well analysis]  [Pump analysis]
+Tabs (routes):          [Overview]  [Well analysis]  [Settings]
+Segmented (modes):      [Canvas view]  [Code view]
 ```
 
-- Used for multi-page global navigation OR view switching within a single-page app.
-- Omit entirely if the app has no navigation or only one view.
+- **Tabs** — mutually exclusive **page-level** views (routes).
+- **Segmented control** — **mode** or layout switching (e.g. canvas vs code) when that fits better than route tabs.
+- **Always `size="sm"`** (or Aura’s equivalent **small** size for these primitives).
+- Omit entirely if the app has no global navigation or only one view.
+- **Do not** put app-specific **primary** actions here — those belong **below** the Topbar.
 
-**Right section breakdown:**
+**Right section — utility strip (fixed order when each control is shown):**
 
 ```
-Action slot (app-controlled)          System actions (fixed order, far right)
-──────────────────────────────────    ────────────────────────────────────────
-[Export]  [+ Add data]                [Atlas]  [🔔]  [Share]  [☀/🌙]  [👤]
- ← app-wide actions only →  CTA        optional  opt   opt    ALWAYS   always
-                                        never reordered or restyled
+Share (ghost, sm)   Notifications (ghost, sm)   Theme (ghost, sm)   Atlas (secondary, sm)   User Avatar (sm)
+     optional              optional                  optional              optional              optional*
 ```
 
-**Theme toggle icon logic:**
-- Light mode → show **moon icon**
-- Dark mode → show **sun icon**
+\*Theme and user Avatar are **typically on**; turn off only when the API and product policy allow.
+
+**Theme control:**
+
+- **Light mode** → **sun** icon on the trigger; **dark mode** → **moon** icon.
+- Clicking opens a **Menu** with **Light mode** and **Dark mode** rows; a **checkmark** shows the current selection; only **one** row is active at a time.
+
+If Storybook exposes extra right-slot entries (e.g. legacy agent), follow the **current** Aura API and [RULES.md §3.3](RULES.md).
 
 ---
 
 ### Left section
 
-**Q1 — App icon**
+**Q1 — Application mark (Avatar)**
 
-> "Looking at the left section of the diagram — every app has a small icon at the far left. Does your app already have an icon defined, or should I suggest one?"
+> "At the far left we use a small Aura Avatar in the fjord colorway for the app mark. Does your app already have branding or an image in config, or should we use the default fjord Avatar treatment from Aura?"
 
-- **Priority order:**
-  1. Custom icon already defined in Dune/Fusion app config → apply it and skip.
-  2. No custom icon → suggest a relevant filled Tabler icon based on the app's name/purpose (e.g. monitoring → `IconActivityHeartbeat`, analytics → `IconChartBar`). Confirm the suggestion before proceeding.
-  3. Nothing obvious fits → use `IconAppsFilled` as the fallback.
-- Always use a **filled** icon variant from Aura's connected Tabler library. Never use outlined icons.
+- Prefer assets from Dune/Fusion app config when present.
+- Compose with Aura **`Avatar`**, **`size="small"`**, **`fjord`** (exact props from Storybook).
 
 **Q2 — App name**
 
@@ -167,7 +173,7 @@ Action slot (app-controlled)          System actions (fixed order, far right)
 > "When a user has a specific [object type] open, would you like a dropdown menu on its name in the breadcrumb for object-level actions — like rename, duplicate, export, or delete?"
 
 - This dropdown appears **only on the object name** (the last breadcrumb segment), and **only when an object is currently open**.
-- **There is no dropdown on the app name.** If users need app-level settings (e.g. manage permissions, configure defaults), add a button in the action slot instead.
+- **There is no dropdown on the app name.** If users need app-level settings (e.g. manage permissions, configure defaults), place entry points in the **content area below the Topbar** (or another approved pattern), not inside the object dropdown.
 - All actions in the object dropdown must apply **only to the currently open object** — do not mix in app-level or global actions.
 - Examples: "Rename this canvas", "Duplicate this report", "Export this document", "Delete this item".
 - If yes: "What object-specific actions should appear in the menu?"
@@ -178,7 +184,7 @@ Action slot (app-controlled)          System actions (fixed order, far right)
 
 **Q5 — Inline metadata** _(optional)_
 
-> "Would you like to show a short status string directly after the breadcrumb — things like 'Updated 3 hours ago', 'Read-only', or a badge? This appears inline in the left section, right next to the object or app name."
+> "Would you like a short status string directly after the breadcrumb on the **left** — things like 'Updated 3 hours ago' or 'Read-only'? It stays in the left cluster with the breadcrumb, never centered in the bar."
 
 - If yes: "What text should appear there?"
 - **String only** — no links, icons, or interactive elements.
@@ -189,46 +195,45 @@ Action slot (app-controlled)          System actions (fixed order, far right)
 
 ### Middle section — navigation
 
-**Q6 — Navigation tabs** _(optional)_
+**Q6 — Global navigation (Tabs or Segmented)** _(optional)_
 
-> "Looking at the middle section of the diagram — does your app have multiple pages or views users switch between? This is where global navigation tabs live."
+> "Does your app need global navigation in the center of the Topbar — either **Tabs** for mutually exclusive pages/routes, or a **Segmented control** for modes like canvas vs code?"
 
-- **Multi-page app:** tabs navigate between routes (e.g. Overview → `/overview`, Settings → `/settings`).
-- **Single-page app:** tabs switch between views or panels within the same page (e.g. Overview, Well analysis, Pump analysis).
-- Tabs are the **preferred** navigation pattern for both cases. If the app has distinct views or sections, tabs here are strongly recommended.
-- **Never use a sidebar for primary navigation.** If the app needs additional internal navigation beyond these tabs, it must live within the content area — not as a sidebar.
-- Only include tabs that are relevant from every page (or always visible in the app). Page-specific sub-navigation belongs in the content area.
-- If yes: "What are the tab names, and where does each one navigate?"
+- **Tabs** — primary app sections as routes (e.g. Overview → `/overview`, Settings → `/settings`).
+- **Segmented control** — switching **views or modes** within the app without changing the top-level route model, when that fits better.
+- **Always small** size to match the rest of the Topbar.
+- **Never use a sidebar for primary navigation.** If the app needs additional internal navigation beyond this slot, it must live within the content area — not as a sidebar.
+- Only include controls that are relevant globally. Page-specific sub-navigation belongs in the content area.
+- If yes: "Which pattern (Tabs vs Segmented), what are the labels, and where does each choice lead?"
+- **Default:** leave the center empty and keep **primary actions below the Topbar**.
 
 ---
 
-### Right section — actions
+### Right section — utility strip
 
-**Q7 — Global action buttons** _(optional)_
+**Q7 — Primary actions in the Topbar** _(reframe as guidance, not a button inventory)_
 
-> "Are there any action buttons that should always be visible in the top bar — like '+ Add data', 'Export', or 'Create new [item]'?"
+> "We no longer place app-specific primary CTAs in the Topbar — those should live in the content area below it. Are you comfortable leaving the Topbar without '+ Create' / 'Export' style buttons, or is there a rare, truly app-wide control you still need next to the utility icons?"
 
-**Before adding any button, apply this test:** Does this action apply to the **entire app** or to **every page** in the app? If it only makes sense on one specific page or in one context, it must stay in the **content area below the topbar** — not here.
+- **Default:** no extra action buttons in the Topbar shell.
+- If something is proposed, apply the test: does it apply to the **entire app on every screen**? If not, it belongs **below** the Topbar.
+- When in doubt, omit it from the Topbar.
 
-- If yes: "What are the button labels and what does each one do?"
-- At most **one** primary CTA (`variant="default"`, `size="sm"`, rightmost). All others are secondary.
-- When in doubt, leave the action slot empty and place the button on the page where it's relevant.
+**Q8 — Right-strip controls** _(ask each sub-question separately)_
 
-**Q8 — System actions** _(ask each sub-question separately)_
+> "The right side is a fixed-order strip; you can turn each control on or off depending on capabilities. I'll ask about each one."
 
-> "The fixed system actions on the far right are platform-controlled and always appear in the same order. The dark mode toggle and avatar are always present. Which optional ones does your app need?"
+Ask each separately (in this order for consistency with the bar):
 
-Ask each separately:
+- **Share:** "Do users need share? Should the Share icon (ghost, small) appear?"
+- **Notifications:** "Does this app surface notifications? Should the bell appear?"
+- **Theme menu:** "Should users switch light/dark theme from the Topbar (sun/moon trigger + menu with checkmarked Light/Dark rows)?"
+- **Atlas:** "Does this app use Atlas? Should the secondary Atlas button (leading icon + label) appear?"
+- **User Avatar:** "Should the signed-in user Avatar appear on the far right?"
 
-- **Atlas:** "Does this app use Atlas, Cognite's AI assistant? Should the Atlas button appear?"
-- **Notifications:** "Does this app send alerts or notifications? Should the Notifications button appear?"
-- **Share:** "Do users need to share content with others? Should the Share button appear?"
+Fixed order when visible (left → right): **Share → Notifications → Theme → Atlas → user Avatar**.
 
-The dark mode toggle and user avatar are **always included** — do not ask about them.
-
-Fixed order (left → right): **Atlas → Notifications → Share → Dark mode toggle → Avatar**
-
-Apps may hide Atlas, Notifications, and Share individually, but may never reorder or restyle any system action.
+Apps **must not** reorder these items; styling follows Aura. If Aura documents additional optional controls, align with Storybook.
 
 ---
 
@@ -240,7 +245,7 @@ Apps may hide Atlas, Notifications, and Share individually, but may never reorde
 
 ---
 
-**Closing:** Before implementing, summarize the configuration in five bullets or fewer: left (icon + breadcrumb pattern + inline metadata if any), middle (navigation tabs or none), right action slot (which buttons, if any), system actions (Atlas/Notifications/Share on/off — dark mode and avatar always on), excluded routes. Then proceed to Step 3.
+**Closing:** Before implementing, summarize the configuration in five bullets or fewer: left (fjord `Avatar` + breadcrumb pattern + inline metadata if any), middle (Tabs, Segmented control, or none), primary actions (confirm they live **below** the Topbar), right strip (which of Share / Notifications / Theme / Atlas / Avatar are on), excluded routes. Then proceed to Step 3.
 
 ---
 
@@ -291,29 +296,36 @@ Confirm `tailwind.config` has `darkMode: 'class'`. Add it if missing.
 
 ## Step 4 — Dark mode hook
 
-Always implement dark mode. Check for an existing theme system first:
+Always implement theme switching (light / dark). Check for an existing theme system first:
 
 - Search for `useDarkMode`, `useTheme`, `useColorScheme`, or a `ThemeProvider` in `src/`
 - If found, wire into it and skip creating a new hook.
 
-If none exists, create `src/hooks/use-dark-mode.ts`:
+If none exists, create `src/hooks/use-theme-mode.ts` (or extend your existing hook) so the Topbar menu can **set** light or dark explicitly:
 
 ```ts
 import { useEffect, useState } from 'react';
 
-export function useDarkMode() {
-  const [isDark, setIsDark] = useState(() => {
+export type ThemeMode = 'light' | 'dark';
+
+export function useThemeMode() {
+  const [mode, setMode] = useState<ThemeMode>(() => {
     const stored = localStorage.getItem('theme');
-    if (stored) return stored === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (stored === 'dark' || stored === 'light') return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   useEffect(() => {
+    const isDark = mode === 'dark';
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
+  }, [mode]);
 
-  return { isDark, toggle: () => setIsDark((v) => !v) };
+  return {
+    mode,
+    isDark: mode === 'dark',
+    setTheme: (next: ThemeMode) => setMode(next),
+  };
 }
 ```
 
@@ -327,6 +339,8 @@ if (stored === 'dark' || (!stored && prefersDark)) {
 }
 ```
 
+The Topbar **theme** trigger should open a **Menu** whose items call `setTheme('light')` and `setTheme('dark')` and show a **checkmark** on the active row.
+
 ---
 
 ## Step 5 — Implement the Topbar
@@ -336,64 +350,51 @@ if (stored === 'dark' || (!stored && prefersDark)) {
 ```tsx
 import { Topbar } from '@aura/topbar';
 import { Breadcrumb, BreadcrumbItem } from '@aura/topbar'; // adjust to actual exports
-import { useDarkMode } from '@/hooks/use-dark-mode';
+// App + user Avatar: import from the Aura package / path Storybook documents for Topbar.
+import { useThemeMode } from '@/hooks/use-theme-mode';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { isDark, toggle } = useDarkMode();
+  const { mode, setTheme } = useThemeMode();
 
   return (
     <>
       <Topbar
-        // Left — required
-        // Use a filled Tabler icon. Priority: app config icon → relevant filled icon → IconAppsFilled.
-        applicationIcon={<AuraAppIcon name="..." />}
+        // Left — application mark: Avatar small, fjord (verify Storybook props)
+        applicationIcon={
+          <Avatar size="small" colorway="fjord" src={appMarkSrc} alt="" />
+        }
         breadcrumbs={
           <Breadcrumb>
-            {/* App name: link to home/root only when an object is open; plain text otherwise */}
             <BreadcrumbItem label="Application Name" href="/" />
-            {/* Object segment: add only when a domain object is open; omit otherwise */}
-            {/* <BreadcrumbItem label={objectName} onDropdownOpen={...} /> */}
+            {/* <BreadcrumbItem label={objectName} ... dropdown ... /> */}
           </Breadcrumb>
         }
 
-        // Inline metadata — optional string immediately after breadcrumb; omit when unused
+        // Inline metadata — optional string immediately after breadcrumb, left-aligned only
         // breadcrumbMetadata="Updated 3 hours ago"
 
-        // Middle — optional navigation tabs; omit when app has no global navigation
-        // Use for multi-page route navigation OR view switching within a single-page app.
-        // Never use a sidebar — all primary navigation lives here or in the content area.
+        // Middle — optional Tabs (routes) OR Segmented control (modes); size small; omit if unused
         centerSlot={
           null
-          // Example: <Tabs value={currentTab} onValueChange={navigate}>
-          //   <Tab value="overview" label="Overview" />
-          //   <Tab value="details" label="Details" />
-          // </Tabs>
+          // Example Tabs: <Tabs size="sm" ... />
+          // Example Segmented: <SegmentedControl size="sm" ... />
         }
 
-        // Right action slot — app-wide or every-page actions only
-        // If an action only applies to one page, it belongs in the content area, not here.
-        trailingSlot={
-          <>
-            {/* Secondary action buttons here */}
-            {/* Primary CTA — at most one, rightmost, variant="default", size="sm" */}
-            {/* <Button variant="default" size="sm">+ Add data</Button> */}
-          </>
-        }
-
-        // System actions — fixed order: agent → notifications → share → darkMode → avatar
-        // Dark mode and avatar are always present. Agent/notifications/share are optional.
-        // Verify exact prop names and API shape against @aura/topbar Storybook.
+        // Right strip — fixed order when each is visible: share → notifications → theme → atlas → avatar
+        // Theme: sun when light, moon when dark; Menu with Light mode / Dark mode + checkmark on active
+        // Storybook may still call this darkMode or split props differently — map menu choice to setTheme('light'|'dark').
+        trailingSlot={null}
         systemActions={{
-          agent: { visible: true },
-          notifications: { visible: true },
           share: { visible: true },
+          notifications: { visible: true },
           darkMode: {
-            visible: true,   // always true — never hide
-            isDark,
-            onToggle: toggle,
-            // Light mode → moon icon; dark mode → sun icon
+            visible: true,
+            mode, // 'light' | 'dark' — illustrative; use whatever resolvedTheme API Aura exposes
+            onSelectLight: () => setTheme('light'),
+            onSelectDark: () => setTheme('dark'),
           },
-          avatar: { visible: true },
+          atlas: { visible: true },
+          avatar: { visible: true, src: userPhotoSrc, alt: userName },
         }}
       />
       <main>{children}</main>
@@ -407,7 +408,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 ```tsx
 <div className="flex min-h-screen flex-col">
   <AppShell>
-    {/* page content */}
+    {/* page content — primary actions for the current screen live here */}
   </AppShell>
 </div>
 ```
@@ -419,15 +420,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 Verify before finishing (see [RULES.md §12](RULES.md) for the full enforcement checklist):
 
 - [ ] Exactly **one** Topbar per page
-- [ ] Left: filled icon → app name breadcrumb (link to home when object open, plain text otherwise) → object name breadcrumb (only when object is in focus)
+- [ ] Left: **`Avatar`** application mark (**small**, **fjord**) → app name breadcrumb (link to home when object open, plain text otherwise) → object name breadcrumb (only when object is in focus)
 - [ ] Breadcrumb segments are interactive links — not static text
 - [ ] Object dropdown (if present) only on the object name segment; actions are object-scoped only
-- [ ] Inline metadata (if present) is a plain string — no interactive elements
-- [ ] Middle: navigation tabs (if present) handle all global navigation; no sidebar used anywhere
-- [ ] Action slot: every button applies to the entire app or every page; page-specific actions are in the content area
-- [ ] At most **one** `variant="default"` button in the action slot, `size="sm"`, rightmost
-- [ ] System actions in fixed order (agent → notifications → share → dark mode → avatar); no style overrides
-- [ ] Dark mode toggle always visible; moon icon in light mode, sun icon in dark mode
+- [ ] Inline metadata (if present) is a plain string, **left-aligned after** the breadcrumb — not centered
+- [ ] Middle: **Tabs** or **Segmented control** at **small** if present; no sidebar; no primary CTA in the Topbar
+- [ ] **Primary / app-specific actions** live in the **content area below** the Topbar
+- [ ] Right strip when used: **Share → Notifications → Theme → Atlas → user Avatar**; Share / Notifications / Theme use **ghost** **small** icon buttons; Atlas **secondary** **small** with leading icon + "Atlas"
+- [ ] Theme: **sun** in light mode, **moon** in dark mode; **Menu** with **Light mode** / **Dark mode** and **checkmark** on the active row; `setTheme('light' | 'dark')` (or equivalent) wired to `document.documentElement`
 - [ ] `tailwind.config` has `darkMode: 'class'`
 - [ ] `add-navigation` (`@cognite/dune-industrial-components/navigation`) removed if previously present
 

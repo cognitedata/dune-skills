@@ -32,11 +32,11 @@ If unsure whether a route qualifies, **default to including the Topbar**.
 
 ### 3.1 Left section (required)
 
-Order (left → right):
+Order (left → right), all in one **left-aligned cluster** (metadata is never centered in the bar):
 
-1. **Application icon** — filled icon from Aura's connected Tabler library. Priority: (1) custom icon from app config, (2) relevant filled Tabler icon, (3) `IconAppsFilled` as the fallback. Never use an outlined icon variant.
+1. **Application mark** — Aura **`Avatar`**, **`size="small"`**, **`fjord`** colorway. Use the app image or branding supplied by app config / Aura Topbar API when available. Confirm props and slots in Storybook.
 2. **Breadcrumbs** — Aura Breadcrumb component. All segments are **interactive links** that navigate to their corresponding route. Do not render breadcrumbs as static/non-interactive text.
-3. **Inline metadata** _(optional)_ — a plain string immediately to the right of the breadcrumb (e.g. "Updated 3 hours ago", "Read-only"). String only; no links, icons, or interactive elements. Omit entirely when unused.
+3. **Inline metadata** _(optional)_ — immediately to the right of the breadcrumb, still in the left cluster (e.g. "Updated 3 hours ago", "Read-only"). String only; no links, icons, or interactive elements. Omit entirely when unused.
 
 Breadcrumb rules:
 
@@ -48,62 +48,59 @@ Breadcrumb rules:
 Object dropdown:
 
 - The object name may act as the **sole** trigger for an object-level dropdown **only when an object is open**.
-- **No dropdown on the app name.** If app-level settings are needed, add a button in the action slot.
+- **No dropdown on the app name.** If app-level settings are needed, surface them in the **content area below the Topbar** (or another approved shell pattern), not in the object dropdown.
 - All dropdown actions must apply **only to the currently open object** (rename, duplicate, export, delete, etc.). Do not mix in app-level or global actions.
 - Use Aura components for the trigger, menu, and items only.
 
-### 3.2 Middle section — navigation (optional)
+### 3.2 Middle section — global navigation (optional)
 
-- Used for **global navigation tabs** — either between pages/routes (multi-page app) or between views/panels within a single-page app.
-- Tabs are the **preferred** navigation pattern. If the app has distinct views, use tabs here.
-- **Never use a sidebar** for primary app navigation. If additional sub-navigation is needed beyond these tabs, it must live within the content area.
+- **Optional slot** for **global** navigation only: controls that apply across the app shell, not page-local toolbars.
+- **Tabs** — preferred for **mutually exclusive page-level** views (routes): one tab = one primary destination.
+- **Segmented control** — alternative when the user switches **modes or layouts** within the app (e.g. canvas view vs code view) rather than top-level routes.
+- **Size** — always **small** to match other Topbar controls.
+- **Do not** place app-specific **primary** actions or a **primary CTA** in the Topbar. Those belong in the **content region below the Topbar** unless Aura documents a dedicated exception.
+- **Never use a sidebar** for primary app navigation. If additional sub-navigation is needed beyond this slot, it must live within the content area.
 - If the app has no global navigation or only one view, leave this section empty entirely.
 
-### 3.3 Right section
+### 3.3 Right section — utility strip (component API, app visibility)
 
-Two parts, in order:
+The right area is defined by `@aura/topbar` and exposed as **one ordered strip**. Apps choose **which controls are visible** based on capabilities and product policy; **order is fixed** when a control is shown.
 
-#### A. Action slot (app-controlled)
+Fixed order (left → right within the strip):
 
-- App-wide or every-page action buttons only.
-- **The gate test:** If an action does not apply to the entire app or every page, it does not belong here — place it in the content area below the Topbar.
-- Primary CTA: Aura **Default** button, **size small**, **rightmost**, **at most one**. All other buttons are secondary.
-
-#### B. Persistent system actions (far right — platform-controlled)
-
-Not configurable by app teams. Secondary-style icon buttons, Aura icons, size small, fixed order:
-
-1. Agent experience _(optional)_
-2. Notifications _(optional)_
-3. Share _(optional)_
-4. **Dark mode toggle** _(always present)_ — moon icon in light mode, sun icon in dark mode
-5. **User avatar** _(always present)_
+1. **Share** — icon button, **`size="sm"`**, **`variant` / styling: ghost**.
+2. **Notifications** — bell icon button, **`size="sm"`**, **ghost**.
+3. **Theme** — icon button, **`size="sm"`**, **ghost**:
+   - **Light mode** → show **sun** icon; **dark mode** → show **moon** icon.
+   - On click: open an Aura **Menu** with two items, **Light mode** and **Dark mode**. Exactly **one** is selected at a time; a **checkmark** indicates the current theme. Choosing an item sets that theme (radio-like behavior, not a blind toggle).
+4. **Atlas** — **`size="sm"`**, **secondary** button, **leading icon** + label **"Atlas"**.
+5. **User** — **`Avatar`**, **`size="small"`**.
 
 Rules:
-- Order is fixed; apps cannot reorder.
-- Agent, Notifications, and Share visibility may be toggled per product policy; apps may hide them individually.
-- Dark mode toggle and avatar are **always visible** — they must not be hidden.
-- Styling and behavior must **not** be overridden by app teams.
-- Spacing between action slot and this group is defined by Aura Topbar.
+
+- Visibility of Share, Notifications, Theme, Atlas, and user Avatar is **configurable** per app where the Aura API allows — enable only what the product needs.
+- Theme and user Avatar are **typically always on** for authenticated apps; hide them only when the Aura/shell API and product policy explicitly allow.
+- **Do not reorder** items; **do not** override Aura styling or behavior for these controls.
+- If Storybook documents additional entries (e.g. a separate agent affordance), follow the **current** `@aura/topbar` API — this document lists the canonical Dune/Fusion strip above.
 
 ---
 
 ## 4. Sizing
 
-All Topbar interactive elements use **small** size unless Aura Topbar documentation explicitly prescribes otherwise.
+All Topbar interactive elements use **small** size unless Aura Topbar documentation explicitly prescribes otherwise. (Avatar application mark and user Avatar use **`size="small"`** as in Aura docs.)
 
 ---
 
 ## 5. Responsive behavior
 
 - Follow Aura Topbar default responsive behavior.
-- If an app places many items in the flexible slot, the app must handle overflow (prioritization, fewer items, progressive disclosure). This is an **app responsibility** when content is dense.
+- If an app fills the center slot or right strip densely, the app must handle overflow (prioritization, fewer items, progressive disclosure). This is an **app responsibility** when content is dense.
 
 ---
 
 ## 6. Accessibility & keyboard
 
-- Tab / focus order follows **visual** order: left section → middle (if any) → flexible right slot → persistent system actions.
+- Tab / focus order follows **visual** order: **left section** → **middle** (if any) → **right strip** in the order defined in §3.3.
 - No extra skip link or focus management requirements beyond Aura defaults at this time.
 
 ---
@@ -119,22 +116,21 @@ All Topbar interactive elements use **small** size unless Aura Topbar documentat
 | Concern | Who controls | Notes |
 |---------|-------------|-------|
 | Topbar presence & single instance | App + shell | One per page; no duplicates |
-| Left: icon | App (via Aura API) | Filled Tabler icon; priority: config → relevant filled → `IconAppsFilled` |
+| Left: application mark | App (via Aura API) | `Avatar`, `size="small"`, `fjord` colorway |
 | Left: breadcrumbs | App (via Aura API) | Interactive links; app name navigates to home only when object is open |
-| Left: inline metadata | App | Optional plain string after breadcrumb; no interactive elements |
+| Left: inline metadata | App | Optional plain string **after breadcrumb**, left cluster only; never centered; no interactive elements |
 | Object dropdown | App (items), platform/Aura (presentation) | Object name only, object-scoped actions only; no app-level dropdown |
-| Middle: navigation tabs | App | Optional; preferred for multi-page nav and SPA view switching; never a sidebar |
-| Right: action slot | App | App-wide or every-page actions only; one Default CTA max, small, rightmost |
-| System actions (agent, notifications, share, dark mode, avatar) | Platform + visibility rules | Fixed order: agent → notifications → share → dark mode → avatar; dark mode and avatar always visible; no style/behavior overrides |
+| Middle: Tabs or Segmented control | App | Optional; **small**; global routes (Tabs) or global modes (Segmented); never a sidebar; no primary CTAs here |
+| Right: Share, Notifications, Theme menu, Atlas, user Avatar | App + Aura API | Fixed **order** when shown; each visibility toggled per capability/policy; theme uses sun/moon icons and menu with checkmarked selection |
 | Theming | Aura tokens only | No arbitrary CSS |
 
 **Open items (to be finalized):**
 
-- System-level configuration matrix (tenant vs build-time vs runtime) per action.
-- Telemetry/analytics for notifications, share, agent.
+- System-level configuration matrix (tenant vs build-time vs runtime) per control.
+- Telemetry/analytics for notifications, share, Atlas.
 - Shell responsibility details (single mount point vs per-app composition).
 - Lint rules and automated checks for Topbar compliance.
-- Automated binding of app config / Fusion config to pre-fill agent answers.
+- Automated binding of app config / Fusion config to pre-fill Atlas answers.
 
 ---
 
@@ -160,31 +156,28 @@ The full interview is defined in `SKILL.md §2` (Step 2, pre-flight through clos
 
 - Use `@aura/topbar` and compose Topbar exactly as Aura documents.
 - Keep **one** Topbar per page.
-- Use a filled Tabler icon; fall back to `IconAppsFilled` if nothing relevant exists.
+- Use **`Avatar`**, **`size="small"`**, **`fjord`** for the application mark at the far left.
+- Keep inline metadata in the **left cluster**, **after** the breadcrumb — **never** centered in the bar.
 - Make breadcrumb segments interactive links that navigate to their routes.
 - Add the app name link to home/root only when an object is currently open.
 - Put object dropdown only on the object name; scope all actions to that object only.
-- Use the middle section for navigation tabs (multi-page routes or SPA view switching).
-- Put action buttons in the right slot only if they apply to the entire app or every page.
-- Use **small** size for all Topbar controls; one Default primary button max in the action slot.
-- Always include the dark mode toggle in system actions — moon icon in light mode, sun icon in dark mode.
-- Always include the user avatar in system actions.
-- Respect fixed order and Aura styling for system icon buttons.
+- Use the middle section for **Tabs** (page views) or **Segmented control** (mode views), **size small**, when global navigation is needed.
+- Put **app-specific primary actions** in the **content area below the Topbar**, not in the Topbar.
+- Use **small** size for Topbar controls; use **ghost** icon buttons for Share, Notifications, and Theme; **secondary** for Atlas.
+- Implement theme as **sun** in light mode, **moon** in dark mode, with a **menu** and **checkmark** on the active **Light mode** / **Dark mode** row.
+- Respect fixed **order** and Aura styling for the right strip.
 
 **Don't**
 
 - Don't build a custom top bar or duplicate global chrome.
 - Don't use multiple Topbars or a second header in embedded views.
-- Don't use a sidebar for navigation — ever. Use middle tabs or content-area navigation instead.
-- Don't put page-specific action buttons in the topbar — they belong in the content area.
-- Don't add a dropdown to the app name — use a button in the action slot for app settings.
+- Don't use a sidebar for navigation — ever. Use middle Tabs/Segmented control or content-area navigation instead.
+- Don't put page-specific or app-primary CTAs in the Topbar — they belong below it.
+- Don't add a dropdown to the app name — use patterns **below the Topbar** for app-level settings.
 - Don't mix app-level and object-level actions in the object dropdown.
 - Don't render breadcrumbs as static/non-interactive text.
-- Don't use an outlined icon — always use the filled variant.
-- Don't override system action appearance or behavior.
-- Don't add two Default/primary CTAs.
-- Don't place the dark mode toggle in the action slot — it belongs in system actions.
-- Don't hide or omit the dark mode toggle or user avatar.
+- Don't use a filled Tabler icon stack in place of the **fjord Avatar** application mark unless Aura docs explicitly allow an alternative.
+- Don't override right-strip appearance or behavior outside Aura options.
 - Don't use non-token styling on Topbar or its children.
 - Don't use `@cognite/dune-industrial-components/navigation` (deprecated — use `@aura/topbar`).
 
@@ -193,11 +186,11 @@ The full interview is defined in `SKILL.md §2` (Step 2, pre-flight through clos
 ## 12. Enforcement
 
 1. Verify `@aura/topbar` is the only top-level app chrome; reject any parallel header implementation.
-2. Check left section: filled icon → breadcrumbs (interactive links) → optional inline metadata (string only).
+2. Check left section: **`Avatar` (small, fjord)** → breadcrumbs (interactive links) → optional inline metadata (string only, left-aligned after breadcrumb).
 3. Check breadcrumb behavior: app name links to home only when object is open; object dropdown (if any) is on the object name only and contains only object-scoped actions.
-4. Check middle section: navigation tabs if present; confirm no sidebar exists anywhere in the app.
-5. Check action slot: every button applies to the entire app or every page; no page-specific actions; at most one Default CTA, small, rightmost.
-6. Check system actions: correct fixed order; dark mode toggle and avatar always present; moon in light mode, sun in dark mode; no custom styling on any system action.
+4. Check middle section: **Tabs** or **Segmented control** at **small** if present; no sidebar; no primary CTA in the bar.
+5. Check app actions: primary / app-specific actions live **below** the Topbar, not in the middle or as an extra ad-hoc header row.
+6. Check right strip: when present, order is Share → Notifications → Theme → Atlas → user Avatar; ghost icon buttons for Share, Notifications, Theme; theme shows **sun** in light / **moon** in dark and a **menu** with checkmarked **Light mode** / **Dark mode**; Atlas **secondary** with leading icon + "Atlas"; **`Avatar` small** for user.
 7. Confirm the configuration interview (`SKILL.md §2`) was completed for new Topbar work.
 
 ---
@@ -208,5 +201,5 @@ Update `RULES.md` when:
 
 - Aura Topbar API or package name changes.
 - Platform finalizes configuration, telemetry, shell mount, or lint rules.
-- New global system actions are added to the persistent group.
+- New controls are added to the right strip or center slot contract changes.
 - Dune/Fusion config paths or fields used for pre-flight are standardized.
