@@ -32,7 +32,9 @@ List every type error. These must be fixed.
 
 ---
 
-## Step 2 — Eliminate `any` types
+## Step 2 — TypeScript type safety
+
+### 2a — Eliminate `any` types
 
 Search for `any` usage across the codebase:
 
@@ -51,6 +53,82 @@ For each hit, replace with the correct type. Common substitutions:
 | `as any` casts | Proper type narrowing or explicit overloaded function signature |
 
 The goal is zero `any` in `src/`. If a third-party library forces it, wrap the call in a typed adapter function so `any` does not leak into the app.
+
+### 2b — Make impossible states unrepresentable
+
+Use the type system to make invalid states fail at compile time. Fewer reachable states = easier code to read and change.
+
+**Branded types** — brand primitives so they can't be mixed up. Validate once at the boundary; downstream code trusts the type.
+
+```ts
+type PhoneNumber = string & { __brand: "PhoneNumber" };
+
+function parsePhone(input: string): PhoneNumber {
+  if (!/^\+?\d{10,15}$/.test(input)) throw new Error(`Invalid: ${input}`);
+  return input as PhoneNumber;
+}
+```
+
+If the project uses a library with native branded-type support (e.g. Effect), use their primitives instead of rolling your own.
+
+**Discriminated unions over flag bags** — replace boolean/optional combos with an exhaustive union:
+
+```ts
+// Don't — invalid combos representable
+type State = { loading: boolean; user?: User; error?: string };
+
+// Do — only valid states exist
+type State =
+  | { status: "loading" }
+  | { status: "success"; user: User }
+  | { status: "error"; error: string };
+```
+
+Search for flag-bag patterns:
+
+```bash
+grep -rn --include="*.ts" --include="*.tsx" -E "loading\?|isLoading.*isError|isSuccess.*isError" src/
+```
+
+Flag every type that combines boolean flags where only certain combos are valid. These should be discriminated unions.
+
+### 2c — Let types flow end-to-end
+
+DB schema → server → client should share types without manual duplication. Don't restate types you can derive — reach for `Pick`, `Omit`, `Parameters`, `ReturnType`, `Awaited`, `typeof` before writing a new interface.
+
+```ts
+// Don't — duplicate shape, drifts when the row changes
+type UserSummary = { id: string; email: Email };
+function renderUser(u: UserSummary) { /* ... */ }
+
+// Do — derive from the source of truth
+type User = Awaited<ReturnType<typeof db.query.users.findFirst>>;
+function renderUser(u: Pick<User, "id" | "email">) { /* ... */ }
+```
+
+```bash
+# Find manually duplicated type shapes
+grep -rn --include="*.ts" --include="*.tsx" -E "^(export )?type \w+Summary|^(export )?interface \w+DTO" src/
+```
+
+Flag interfaces that manually restate fields already present on an SDK or DB type — these should use `Pick`/`Omit` instead.
+
+### 2d — Pass objects, not positional arguments
+
+Functions with two or more parameters of the same primitive type should receive a named-property object so callers can't silently swap arguments.
+
+```ts
+// Don't — swap two args, still compiles
+sendEmail("Welcome!", "Hi there");
+
+// Do — order-independent, self-documenting
+sendEmail({ to: "alice@x.com", subject: "Welcome!", body: "Hi there" });
+```
+
+```bash
+# Find functions with multiple string/number parameters (potential swap bugs)
+grep -rn --include="*.ts" --include="*.tsx" -E "^\s*(export\s+)?(function|const)\s+\w+\s*\([^)]*string[^)]*string" src/
+```
 
 ---
 
