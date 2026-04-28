@@ -29,6 +29,7 @@ npx @cognite/dune skills pull --skill create-client-tool
 | **dune-app-review** | Runs the official Dune app platform review flow against a local app workspace and writes artifacts under `reviews/dune-app-review/feedback-round-N/` |
 | **integrate-file-viewer** | Integrates CogniteFileViewer to preview CDF files (PDFs, images, text) |
 | **performance** | Optimizes Dune apps for speed, render counts, and bundle size |
+| **pull-changes-resolve-conflicts** | Merge or rebase workflow — list conflicts, analyze ours/theirs, get user approval before resolving |
 | **security** | Reviews for security issues — credentials, user input, external data |
 | **setup-dune-auth** | Migrates React apps to Dune auth or adds DuneAuthProvider |
 | **design** | Aura UI — components and tokens, layouts, UX copy, forms/async feedback, accessibility (`skills/design/`) |
