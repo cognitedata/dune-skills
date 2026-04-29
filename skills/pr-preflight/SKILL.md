@@ -2,7 +2,8 @@
 name: pr-preflight
 description: >-
   Run a prioritised pre-PR checklist on a Dune app (React + TypeScript) before
-  raising or pushing a pull request. Catches the most common issues that block
+  raising or pushing a pull request. Uses pnpm (standard for Dune apps) for all
+  scripts. Catches the most common issues that block
   reviews and require follow-up commits: TypeScript type errors, broken or
   misaligned tests, any-casts in test mocks, loose SDK typing, dead code,
   cdf-design-system-alpha (forbidden in all cases), missing input validation, and
@@ -19,9 +20,8 @@ allowed-tools: Read, Glob, Grep, Shell, Write
 Run every gate below **in priority order** and stop to fix blocking findings before moving on.
 Report results as you go — don't silently skip a gate.
 
-> **Package manager:** All commands below use `pnpm`. If the project uses `npm` or `yarn`,
-> substitute accordingly (check `package.json` for the `packageManager` field or look for
-> a lock file: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json` → npm).
+**Dune apps use `pnpm` as the package manager.** Run all install, type-check, test, and lint
+commands with `pnpm` from the app root (where `pnpm-lock.yaml` lives).
 
 ---
 
@@ -149,10 +149,8 @@ thin local wrapper (Radix/shadcn) under `@/components/ui` when Aura does not shi
 # Source and manifest — any hit is a hard FAIL
 grep -rn "cdf-design-system-alpha" src/ package.json 2>/dev/null
 
-# Lockfiles — any direct or transitive resolution of this package name is a FAIL
-for f in pnpm-lock.yaml package-lock.json yarn.lock; do
-  [ -f "$f" ] && grep -n "cdf-design-system-alpha" "$f" && echo "FOUND IN $f"
-done 2>/dev/null
+# Lockfile (Dune standard — pnpm)
+[ -f pnpm-lock.yaml ] && grep -n "cdf-design-system-alpha" pnpm-lock.yaml && echo "FOUND IN pnpm-lock.yaml"
 ```
 
 Zero hits required across all of the above. If grep finds anything, remove the package and
@@ -381,7 +379,7 @@ Also confirm **gate 1e** separately — it is not covered by the commands above.
 following prints **any** line, gate 1e **FAILS** — do not open the PR until every hit is gone:
 
 ```bash
-grep -rn "cdf-design-system-alpha" src/ package.json pnpm-lock.yaml package-lock.json yarn.lock 2>/dev/null
+grep -rn "cdf-design-system-alpha" src/ package.json pnpm-lock.yaml 2>/dev/null
 ```
 
 (Silence means PASS for gate 1e.)
