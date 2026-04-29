@@ -10,15 +10,33 @@ description: Integrates the lightweight CDF graph viewer component via useGraphV
 `useGraphViewer` is a single hook that renders an interactive CDF graph. Give it a data model reference and an optional seed instance -- it returns a self-contained `<GraphCanvas>` component and controls.
 
 ```tsx
-import { useGraphViewer } from "@cognite/dune-industrial-components/graph-viewer";
+import { useGraphViewer } from "@skills/graph-viewer/code";
 ```
 
 **Prerequisites**: The app must be wrapped in `@cognite/dune`'s `<DuneProvider>` for SDK access.
 
+## Dependencies
+
+The hook source lives in `@skills/graph-viewer/code/`. Add the following packages to your app's `package.json` before importing:
+
+| Package         | Version    | Purpose                                              |
+| --------------- | ---------- | ---------------------------------------------------- |
+| `react`         | `^18.2.0`  | UI framework (peer)                                  |
+| `@cognite/sdk`  | `^10.10.0` | CDF API client (instances, data models)              |
+| `@cognite/dune` | `^2.1.0`   | Provides the authenticated SDK via `useDune()`       |
+| `reagraph`      | `^4.30.8`  | WebGL graph rendering engine                         |
+| `lucide-react`  | `^1.14.0`  | Icon set used by the node-type legend                |
+
+Install with your package manager, e.g.:
+
+```bash
+npm install react@^18.2.0 @cognite/sdk@^10.10.0 @cognite/dune@^2.1.0 reagraph@^4.30.8 lucide-react@^1.14.0
+```
+
 ## Quick Start
 
 ```tsx
-import { useGraphViewer } from "@cognite/dune-industrial-components/graph-viewer";
+import { useGraphViewer } from "@skills/graph-viewer/code";
 
 function MyGraph() {
   const { GraphCanvas, isLoading, error } = useGraphViewer({
