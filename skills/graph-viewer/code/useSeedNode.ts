@@ -5,6 +5,7 @@ import type {
   CDFEdge,
   CDFNode,
   DataModelInfo,
+  ReverseRelationQuery,
   ViewPriorityConfig,
 } from "./types";
 import { createInstanceId } from "./types";
@@ -16,7 +17,7 @@ interface UseSeedNodeConfig {
   addEdges: (edges: CDFEdge[]) => void;
   clearBuffer: () => void;
   whitelistedRelationProps?: Set<string>;
-  coreReverseQueries?: Array<[string, string, string, boolean]>;
+  coreReverseQueries?: ReverseRelationQuery[];
   viewPriorityConfig?: ViewPriorityConfig;
   initialConnectionLimit: number;
 }

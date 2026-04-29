@@ -45,6 +45,27 @@ export interface DataModelInfo {
   views: ViewReference[];
 }
 
+/**
+ * Tuple describing a reverse-relation query to run on node expansion.
+ *
+ * `[space, viewExternalId, viewVersion, propertyName, isList]`
+ *
+ * - `space`           - space of the view that defines the relation.
+ * - `viewExternalId`  - external id of the view that defines the relation.
+ * - `viewVersion`     - version of the view (e.g. `"v1"`, `"1"`). Required so the
+ *                       lookup is not pinned to any specific version.
+ * - `propertyName`    - direct relation property on the view that points back to
+ *                       the node being expanded.
+ * - `isList`          - `true` when the relation is `list<direct>`, otherwise `false`.
+ */
+export type ReverseRelationQuery = [
+  space: string,
+  viewExternalId: string,
+  viewVersion: string,
+  propertyName: string,
+  isList: boolean,
+];
+
 export interface ViewPriorityConfig {
   viewTypePriority?: string[];
   priorityViewNames?: string[];
@@ -361,7 +382,7 @@ export interface UseGraphViewerOptions {
   maxNodes?: number;
   layout?: LayoutType;
   whitelistedRelationProps?: string[];
-  coreReverseQueries?: Array<[string, string, string, boolean]>;
+  coreReverseQueries?: ReverseRelationQuery[];
   viewPriorityConfig?: ViewPriorityConfig;
   initialConnectionLimit?: number;
   visualConfig?: Partial<GraphVisualConfig>;

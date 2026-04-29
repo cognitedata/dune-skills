@@ -1,329 +1,103 @@
 ---
 name: graph-viewer
-description: Integrates the lightweight CDF graph viewer component via useGraphViewer hook. Use when embedding a graph visualization, adding a knowledge graph, showing CDF data model relationships, displaying nodes and edges from Cognite Data Fusion, or extracting/componentizing a reusable hook from a larger codebase.
+description: Integrate the reusable CDF graph viewer (useGraphViewer) into a Dune app by copying the local code bundle. Use when embedding a graph visualization, adding a knowledge graph, or showing CDF data model relationships and instances.
 ---
 
-# Graph Viewer Lite
+# Graph Viewer
 
-## Overview
+## Use This When
 
-`useGraphViewer` is a single hook that renders an interactive CDF graph. Give it a data model reference and an optional seed instance -- it returns a self-contained `<GraphCanvas>` component and controls.
+The user wants to embed an interactive graph of a CDF data model — nodes, direct relations, edges, and reverse relations — inside a Dune app.
+
+Do **not** use this skill for static diagrams, pure dataflow visualizations, or non-CDF graphs.
+
+## Prerequisites
+
+- The app is wrapped in `@cognite/dune`'s `<DuneProvider>` so `useDune()` returns an authenticated SDK.
+- The target data model exists in CDF and you know its `space`, `externalId`, and `version`.
+- The app uses React 18+ and TypeScript.
+
+## Integration Workflow
+
+Follow these steps in order. Adapt to the target repo's conventions instead of inventing new ones.
+
+1. **Inspect the target app.** Read `package.json` and look at the existing folder structure (e.g. `src/features/*`, `src/components/*`, path aliases like `@/*`).
+2. **Install missing dependencies** with the app's package manager (`npm`, `pnpm`, `yarn`, …). See the [Dependencies](#dependencies) table below for purposes and suggested versions. Reuse the React version already pinned by the app rather than upgrading it, and prefer any versions the repo already pins over the suggestions here.
+3. **Copy the bundle into the app.** Copy every file from `skills/graph-viewer/code/` into an app-local feature folder, for example:
+
+   ```text
+   src/features/graph-viewer/
+   ```
+
+   If the repo already has a different feature/components layout or alias, mirror it.
+4. **Import from the local folder**, never from `@skills/...`. With a typical `@/*` alias:
+
+   ```tsx
+   import { useGraphViewer } from "@/features/graph-viewer";
+   ```
+5. **Render `GraphCanvas` inside a container with explicit dimensions** (height is required — see the minimal example below).
+6. **Run typecheck and build** (`tsc --noEmit`, `npm run build`, etc.) and fix any path or type issues introduced by the copy.
+
+## Minimal Example
 
 ```tsx
-import { useGraphViewer } from "@skills/graph-viewer/code";
-```
+import { useGraphViewer } from "@/features/graph-viewer";
 
-**Prerequisites**: The app must be wrapped in `@cognite/dune`'s `<DuneProvider>` for SDK access.
-
-## Dependencies
-
-The hook source lives in `@skills/graph-viewer/code/`. Add the following packages to your app's `package.json` before importing:
-
-| Package         | Version    | Purpose                                              |
-| --------------- | ---------- | ---------------------------------------------------- |
-| `react`         | `^18.2.0`  | UI framework (peer)                                  |
-| `@cognite/sdk`  | `^10.10.0` | CDF API client (instances, data models)              |
-| `@cognite/dune` | `^2.1.0`   | Provides the authenticated SDK via `useDune()`       |
-| `reagraph`      | `^4.30.8`  | WebGL graph rendering engine                         |
-| `lucide-react`  | `^1.14.0`  | Icon set used by the node-type legend                |
-
-Install with your package manager, e.g.:
-
-```bash
-npm install react@^18.2.0 @cognite/sdk@^10.10.0 @cognite/dune@^2.1.0 reagraph@^4.30.8 lucide-react@^1.14.0
-```
-
-## Quick Start
-
-```tsx
-import { useGraphViewer } from "@skills/graph-viewer/code";
-
-function MyGraph() {
+export function GraphPanel() {
   const { GraphCanvas, isLoading, error } = useGraphViewer({
-    dataModel: {
-      space: "my-space",
-      externalId: "my-data-model",
-      version: "1",
-    },
-    instance: {
-      space: "my-instance-space",
-      externalId: "pump-001",
-    },
+    dataModel: { space: "my-space", externalId: "my-data-model", version: "1" },
+    instance: { space: "my-instance-space", externalId: "pump-001" },
   });
 
-  if (isLoading) return <div>Loading graph...</div>;
+  if (isLoading) return <div>Loading graph…</div>;
   if (error) return <div>Error: {error}</div>;
 
   return <GraphCanvas className="h-[600px] w-full" />;
 }
 ```
 
-The canvas includes zoom controls and a node-type legend.
+## Dependencies
 
-## Hook Config
+Suggested versions reflect the latest published majors at the time of writing. They are starting points — if the target app already pins different versions, defer to the app.
 
-```typescript
-useGraphViewer(config: UseGraphViewerConfig): UseGraphViewerReturn
+| Package         | Suggested version | Purpose                                        |
+| --------------- | ----------------- | ---------------------------------------------- |
+| `react`         | `^18.2.0`         | UI framework (peer; reuse the app's version)   |
+| `@cognite/sdk`  | `^10.10.0`        | CDF API client (instances, data models)        |
+| `@cognite/dune` | `^2.1.0`          | Provides the authenticated SDK via `useDune()` |
+| `reagraph`      | `^4.30.8`         | WebGL graph rendering engine                   |
+| `lucide-react`  | `^1.14.0`         | Icon set used by the node-type legend          |
+
+Example install (npm; adapt to the app's package manager):
+
+```bash
+npm install @cognite/sdk@^10.10.0 @cognite/dune@^2.1.0 reagraph@^4.30.8 lucide-react@^1.14.0
 ```
 
-### `UseGraphViewerConfig`
+## CDF Cost & Performance
 
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `dataModel.space` | `string` | Yes | CDF space of the data model |
-| `dataModel.externalId` | `string` | Yes | External ID of the data model |
-| `dataModel.version` | `string` | Yes | Version of the data model |
-| `instance.space` | `string` | No | Space of the seed node to auto-load |
-| `instance.externalId` | `string` | No | External ID of the seed node |
-| `options` | `UseGraphViewerOptions` | No | Advanced configuration (see below) |
+Graph expansion can issue many CDF requests, especially with reverse relations. For large or unfamiliar data models, be conservative:
 
-### `UseGraphViewerOptions`
+- Set `whitelistedRelationProps` to the few properties the app actually needs to traverse.
+- Lower `initialConnectionLimit` (it is a **hard maximum** of connections fetched per expansion).
+- Lower `maxNodes` to bound the in-memory LRU buffer.
+- Only declare `coreReverseQueries` for relations the app must surface; each entry adds an extra query per expansion.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `maxNodes` | `number` | `1000` | Max nodes in the LRU buffer |
-| `layout` | `LayoutType` | `"forceDirected2d"` | Initial layout algorithm |
-| `whitelistedRelationProps` | `string[]` | all | Only follow these relation properties when expanding |
-| `coreReverseQueries` | `[space, viewId, prop, isList][]` | `[]` | Reverse relations to query on expand |
-| `viewPriorityConfig` | `ViewPriorityConfig` | defaults | Node type detection priority |
-| `initialConnectionLimit` | `number` | `100` | Max connections fetched per expand |
-| `visualConfig` | `Partial<GraphVisualConfig>` | defaults | Colors, icon size, palette |
-| `themeConfig` | `Partial<GraphThemeConfig>` | defaults | Canvas background, label styling |
-| `features` | `Partial<LiteFeatureFlags>` | all `true` | Toggle legend, zoom, expansion |
+Tuples in `coreReverseQueries` are **version-aware**:
+`[space, viewExternalId, viewVersion, propertyName, isList]`.
 
-### `LiteFeatureFlags`
+## Advanced Reference
 
-| Flag | Default | What it controls |
-|------|---------|-----------------|
-| `enableLegend` | `true` | Node-type color legend overlay |
-| `enableZoomControls` | `true` | Zoom in/out/fit buttons |
-| `enableNodeExpansion` | `true` | Double-click to expand neighbors |
+For full configuration tables, return-value docs, layouts, theming, and richer examples, read `code/README.md`.
 
-## Return Value
+For implementation details, inspect the source files under `code/`.
 
-### `UseGraphViewerReturn`
+## Verification Checklist
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `GraphCanvas` | `React.FC<{ className?: string }>` | Self-contained canvas -- just render it |
-| `isLoading` | `boolean` | `true` while data model or seed is loading |
-| `error` | `string \| null` | Error message, or `null` |
-| `graphData` | `GraphData` | Current nodes, connections, nodeTypes |
-| `stats` | `GraphStats \| null` | `{ totalNodes, totalConnections, nodeTypes, connectionTypes }` |
-| `layout` | `LayoutType` | Current layout |
-| `setLayout` | `(layout) => void` | Change layout algorithm |
-| `selections` | `string[]` | Selected node/edge IDs |
-| `setSelections` | `(ids) => void` | Programmatically select items |
-| `selectedNode` | `GraphNode \| null` | Currently selected node |
-| `selectedEdge` | `GraphEdge \| null` | Currently selected edge |
-| `expandNode` | `(nodeId) => Promise<void>` | Expand a node's neighbors |
-| `loadInstance` | `(space, externalId) => Promise<void>` | Load a new seed node (clears graph) |
-| `fitView` | `() => void` | Fit all nodes into view |
-| `zoomIn` | `() => void` | Zoom in |
-| `zoomOut` | `() => void` | Zoom out |
-| `clear` | `() => void` | Clear all nodes and edges |
-| `graphRef` | `RefObject<GraphCanvasRef>` | Direct ref to Reagraph canvas |
-
-### `LayoutType` values
-
-`"forceDirected2d"` | `"forceDirected3d"` | `"treeTd2d"` | `"treeLr2d"` | `"radialOut2d"` | `"circular2d"`
-
-## Examples
-
-### Minimal embed
-
-```tsx
-function GraphPanel() {
-  const { GraphCanvas } = useGraphViewer({
-    dataModel: { space: "equipment", externalId: "EquipmentModel", version: "1" },
-  });
-
-  return <GraphCanvas className="h-full w-full" />;
-}
-```
-
-No seed instance -- the canvas renders empty until you call `loadInstance`.
-
-### With layout switcher and stats
-
-```tsx
-function GraphWithControls() {
-  const { GraphCanvas, stats, layout, setLayout } = useGraphViewer({
-    dataModel: { space: "equipment", externalId: "EquipmentModel", version: "1" },
-    instance: { space: "assets", externalId: "pump-001" },
-  });
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-4 p-2 border-b">
-        <select value={layout} onChange={(e) => setLayout(e.target.value as LayoutType)}>
-          <option value="forceDirected2d">Force 2D</option>
-          <option value="treeTd2d">Tree</option>
-          <option value="radialOut2d">Radial</option>
-          <option value="circular2d">Circular</option>
-        </select>
-        {stats && <span>{stats.totalNodes} nodes</span>}
-      </div>
-      <GraphCanvas className="flex-1" />
-    </div>
-  );
-}
-```
-
-### Programmatic node loading
-
-```tsx
-function SearchAndGraph() {
-  const { GraphCanvas, loadInstance, isLoading } = useGraphViewer({
-    dataModel: { space: "equipment", externalId: "EquipmentModel", version: "1" },
-  });
-
-  const handleSearch = async (externalId: string) => {
-    await loadInstance("assets", externalId);
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      <input
-        placeholder="Enter node externalId..."
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleSearch(e.currentTarget.value);
-        }}
-      />
-      {isLoading && <p>Loading...</p>}
-      <GraphCanvas className="flex-1" />
-    </div>
-  );
-}
-```
-
-### Disable features
-
-```tsx
-const { GraphCanvas } = useGraphViewer({
-  dataModel: { space: "s", externalId: "dm", version: "1" },
-  instance: { space: "s", externalId: "node-1" },
-  options: {
-    features: {
-      enableLegend: false,
-      enableZoomControls: false,
-      enableNodeExpansion: false,
-    },
-  },
-});
-```
-
-### Controlled expansion with whitelisted relations
-
-```tsx
-const { GraphCanvas } = useGraphViewer({
-  dataModel: { space: "industrial", externalId: "EWIS", version: "1" },
-  instance: { space: "instances", externalId: "connector-001" },
-  options: {
-    whitelistedRelationProps: ["parent", "child", "connectedTo"],
-    coreReverseQueries: [
-      ["industrial-dm", "Cavity", "connector", false],
-      ["industrial-dm", "Cable", "wireGroup", true],
-    ],
-    initialConnectionLimit: 50,
-    maxNodes: 500,
-  },
-});
-```
-
-## Sizing
-
-The `<GraphCanvas>` fills its parent. Give the parent explicit dimensions:
-
-```tsx
-// Fixed height
-<GraphCanvas className="h-[600px] w-full" />
-
-// Fill parent
-<div className="h-full w-full">
-  <GraphCanvas className="h-full w-full" />
-</div>
-
-// Flex child
-<div className="flex flex-col h-screen">
-  <header>...</header>
-  <GraphCanvas className="flex-1" />
-</div>
-```
-
-## Common Patterns
-
-### Reacting to selection
-
-```tsx
-const { GraphCanvas, selectedNode } = useGraphViewer({ ... });
-
-useEffect(() => {
-  if (selectedNode) {
-    console.log("Selected:", selectedNode.data.externalId);
-  }
-}, [selectedNode]);
-```
-
-### Expanding on external trigger
-
-```tsx
-const { expandNode } = useGraphViewer({ ... });
-
-// nodeId format is "space:externalId"
-await expandNode("my-space:pump-001");
-```
-
----
-
-## Appendix: Componentization Pattern
-
-This section describes the general pattern used to extract `useGraphViewer` from the full `GraphViewer` component. Apply the same approach when extracting any reusable hook from a larger codebase.
-
-### 1. Classify source code into buckets
-
-| Bucket | Keep in lite? | Examples |
-|--------|--------------|---------|
-| **Core** | Yes | Canvas rendering, data transforms, buffer, selection |
-| **Integration** | No | Chat sidebar, diagram viewer, saved scenes, search UI |
-| **Shared** | Import as-is | Types, service functions, config defaults, sub-components |
-
-### 2. Design the hook API
-
-- Inputs are **domain-level** (`{ space, externalId, version }`) not internal structures.
-- Return a **self-contained render component** plus state and imperative controls.
-- Group advanced options under an `options` object with sensible defaults.
-
-### 3. Decompose into sub-hooks
-
-| Sub-hook | Responsibility |
-|----------|---------------|
-| `useResourceLoader` | Fetch the domain resource from the API |
-| `useSeedLoader` | Load + expand an initial item into the buffer |
-| `useBuffer` | Manage the in-memory node/edge collection (reuse existing) |
-| `useSelection` | Track selected items (reuse existing) |
-| `useDataPipeline` | Transform buffer to render format (reuse existing) |
-
-The main hook composes them, wires interaction callbacks, and builds the component via `useMemo` for stable identity.
-
-### 4. File structure
-
-```
-feature/lite/
-  index.ts                # Public exports (hook + types only)
-  types.ts                # Config, return type, feature flags
-  useFeature.tsx          # Main hook (composes sub-hooks, returns component)
-  useResourceLoader.ts    # Fetches domain resource
-  useSeedLoader.ts        # Loads initial data into buffer
-  FeatureCanvas.tsx       # Lightweight render component (props-driven)
-```
-
-### 5. Checklist
-
-- Hook input uses domain-level identifiers, not internal types
-- Returned component is self-contained (consumer just renders it)
-- Shared code is imported, never duplicated
-- Integration features are excluded from the lite version
-- Feature flags allow toggling overlays (legend, zoom, expansion)
-- `useMemo` wraps the component for stable identity
-- Public export surface is minimal (hook + types only)
+- [ ] The app is wrapped in `<DuneProvider>`.
+- [ ] All files from `skills/graph-viewer/code/` were copied into an app-local folder.
+- [ ] Imports point to the app-local folder (e.g. `@/features/graph-viewer`), not `@skills/...`.
+- [ ] `@cognite/dune`, `@cognite/sdk`, `reagraph`, and `lucide-react` are present in `package.json`.
+- [ ] The container that renders `<GraphCanvas>` has an explicit height.
+- [ ] `tsc --noEmit` and the app's build both pass.
+- [ ] No references to `dune-industrial-components` were introduced.

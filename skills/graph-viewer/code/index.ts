@@ -13,6 +13,7 @@ export type {
   CDFNode,
   CDFEdge,
   DataModelInfo,
+  ReverseRelationQuery,
   ViewReference,
   ViewPriorityConfig,
   GraphThemeConfig,

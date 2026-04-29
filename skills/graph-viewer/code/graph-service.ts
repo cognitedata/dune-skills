@@ -4,6 +4,7 @@ import type {
   CDFNode,
   DataModelInfo,
   GraphData,
+  ReverseRelationQuery,
   ViewPriorityConfig,
 } from "./types";
 
@@ -105,6 +106,16 @@ function deriveNodeTypeFromProperties(
 
 const QUERY_PAGE_LIMIT = 10_000;
 
+/**
+ * Paginate a CDF instances.query selection until either:
+ *   1. the API has no more cursors,
+ *   2. the cumulative number of items reaches `maxTotal` (hard cap), or
+ *   3. an empty page is returned.
+ *
+ * `maxTotal` is a HARD MAXIMUM. The function never returns more than `maxTotal`
+ * items, and it stops fetching additional pages as soon as the cap is reached.
+ * Pass `Infinity` to disable the cap (legacy "fetch everything" behaviour).
+ */
 async function queryWithCursorPagination<T>(
   client: CogniteClient,
   selectionName: string,
@@ -120,18 +131,22 @@ async function queryWithCursorPagination<T>(
     select: Record<string, { sources?: unknown[]; sort?: unknown[] }>;
     includeTyping?: boolean;
   },
-  limitPerPage: number = QUERY_PAGE_LIMIT
+  limitPerPage: number = QUERY_PAGE_LIMIT,
+  maxTotal: number = Infinity
 ): Promise<T[]> {
   const results: T[] = [];
   let cursors: Record<string, string> | undefined;
 
-  for (;;) {
+  while (results.length < maxTotal) {
+    const remaining = maxTotal - results.length;
+    const pageLimit = Math.max(1, Math.min(limitPerPage, remaining));
+
     const withWithLimit = { ...query.with };
     const firstKey = Object.keys(withWithLimit)[0];
     if (firstKey && withWithLimit[firstKey]) {
       withWithLimit[firstKey] = {
         ...withWithLimit[firstKey],
-        limit: limitPerPage,
+        limit: pageLimit,
       };
     }
     const request = {
@@ -151,7 +166,7 @@ async function queryWithCursorPagination<T>(
     if (chunk.length === 0 || !cursors?.[selectionName]) break;
   }
 
-  return results;
+  return results.length > maxTotal ? results.slice(0, maxTotal) : results;
 }
 
 // =============================================================================
@@ -248,7 +263,7 @@ export async function fetchConnectedNodes(
   _dataModel?: DataModelInfo,
   limit = 100,
   whitelistedRelationProps?: Set<string>,
-  coreReverseQueries?: Array<[string, string, string, boolean]>,
+  coreReverseQueries?: ReverseRelationQuery[],
   viewPriorityConfig?: ViewPriorityConfig
 ): Promise<ExpandNodeResult> {
   if (!client) {
@@ -399,7 +414,11 @@ export async function fetchConnectedNodes(
           select: { edges: {} },
           includeTyping: true,
         },
-        limit * 2
+        Math.min(limit * 2, QUERY_PAGE_LIMIT),
+        // Hard cap: never return more than `limit` edges per expansion. This
+        // upper bound protects the consumer from runaway pagination and matches
+        // the documented contract of `initialConnectionLimit`.
+        limit
       );
       return { items };
     })(),
@@ -482,19 +501,33 @@ export async function fetchConnectedNodes(
   try {
     const nodeRef = { space: nodeSpace, externalId: nodeExternalId };
 
+    // Spread the per-expansion budget across all configured reverse queries so
+    // the total number of nodes contributed by reverse relations stays within
+    // `limit`. Each query gets at least 1 row.
+    const perQueryLimit =
+      CORE_REVERSE_QUERIES.length > 0
+        ? Math.max(1, Math.ceil(limit / CORE_REVERSE_QUERIES.length))
+        : limit;
+
     const queryPromises = CORE_REVERSE_QUERIES.map(
-      async ([viewSpace, viewExternalId, propertyName, isList]) => {
+      async ([viewSpace, viewExternalId, viewVersion, propertyName, isList]) => {
         try {
+          const propertyPath = [
+            viewSpace,
+            `${viewExternalId}/${viewVersion}`,
+            propertyName,
+          ];
+
           const filter = isList
             ? {
                 containsAny: {
-                  property: [viewSpace, `${viewExternalId}/v1`, propertyName],
+                  property: propertyPath,
                   values: [nodeRef],
                 },
               }
             : {
                 equals: {
-                  property: [viewSpace, `${viewExternalId}/v1`, propertyName],
+                  property: propertyPath,
                   value: nodeRef,
                 },
               };
@@ -514,7 +547,8 @@ export async function fetchConnectedNodes(
               select: { nodes: {} },
               includeTyping: false,
             },
-            50
+            Math.min(50, perQueryLimit),
+            perQueryLimit
           );
           return items.map((item) => ({
             space: item.space,
