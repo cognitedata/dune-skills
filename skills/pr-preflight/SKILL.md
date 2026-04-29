@@ -4,8 +4,9 @@ description: >-
   Run a prioritised pre-PR checklist on a Dune app (React + TypeScript) before
   raising or pushing a pull request. Catches the most common issues that block
   reviews and require follow-up commits: TypeScript type errors, broken or
-  misaligned tests, any-casts in test mocks, loose SDK typing, dead code, missing
-  input validation, and PR description drift from the actual implementation.
+  misaligned tests, any-casts in test mocks, loose SDK typing, dead code,
+  cdf-design-system-alpha (forbidden in all cases), missing input validation, and
+  PR description drift from the actual implementation.
   Use this skill whenever the user says "ready to push", "raise a PR",
   "pre-push check", "check before PR", "am I good to open a PR", "PR checklist",
   or wants to verify their branch is review-ready — even if they don't use any
@@ -136,6 +137,27 @@ Zero results required. Common replacements:
 | `(wrapper as any).find(...)` | Use proper RTL queries |
 | `forwardRef((props: any, ref: any) => ...)` | `forwardRef<HTMLElement, Props>((props, ref) => ...)` |
 
+### 1e · `cdf-design-system-alpha` is forbidden — no exceptions
+
+**Do not use `cdf-design-system-alpha` under any circumstances.** It is deprecated and
+must not appear in imports, re-exports, dynamic `import()`, `package.json` dependencies,
+optional dependencies, or resolutions/overrides that pull it in. There is no approved
+workaround — every UI surface must use `@cognite/aura` / `@cognite/aura/components`, or a
+thin local wrapper (Radix/shadcn) under `@/components/ui` when Aura does not ship a primitive.
+
+```bash
+# Source and manifest — any hit is a hard FAIL
+grep -rn "cdf-design-system-alpha" src/ package.json 2>/dev/null
+
+# Lockfiles — any direct or transitive resolution of this package name is a FAIL
+for f in pnpm-lock.yaml package-lock.json yarn.lock; do
+  [ -f "$f" ] && grep -n "cdf-design-system-alpha" "$f" && echo "FOUND IN $f"
+done 2>/dev/null
+```
+
+Zero hits required across all of the above. If grep finds anything, remove the package and
+replace usages with Aura before opening the PR.
+
 ---
 
 ## PRIORITY 2 — Common review feedback patterns
@@ -162,19 +184,17 @@ For each hit, check whether an equivalent already exists in the SDK. Common subs
 | Custom filter shape | `FilterDefinition` from `@cognite/sdk` |
 | Interface wrapping `CogniteClient` to expose extra methods | Use `BaseCogniteClient` — `project`, `getBaseUrl()`, `getDefaultRequestHeaders()` are already public |
 
-### 2b · No deprecated UI library imports
+### 2b · No other deprecated Cognite UI packages
 
-If the project recently migrated from an older UI library to `@cognite/aura`, verify the
-migration is complete:
+`cdf-design-system-alpha` is covered in **gate 1e** (Priority 1, zero tolerance). Here,
+check for other legacy UI packages that should not ship in new code:
 
 ```bash
-# Check for imports from any deprecated design system
-grep -rn "cdf-design-system-alpha\|cdf-ui-kit" src/ package.json 2>/dev/null
+grep -rn "cdf-ui-kit" src/ package.json 2>/dev/null
 ```
 
-All UI primitives should come from `@cognite/aura` or `@cognite/aura/components`.
-If a primitive isn't available in Aura yet (e.g. `AlertDialog`, `ScrollArea`), keep a minimal
-Radix/shadcn wrapper and document the reason in a comment.
+Any hit should be treated like 1e: remove and migrate to Aura. If nothing is found, report
+**PASS** for this gate.
 
 ### 2c · No redundant tooling or dead code
 
@@ -357,6 +377,15 @@ pnpm type-check && pnpm test --run && pnpm lint
 
 All three must exit 0. If any fails, fix it before opening the PR.
 
+Also confirm **gate 1e** separately — it is not covered by the commands above. If the
+following prints **any** line, gate 1e **FAILS** — do not open the PR until every hit is gone:
+
+```bash
+grep -rn "cdf-design-system-alpha" src/ package.json pnpm-lock.yaml package-lock.json yarn.lock 2>/dev/null
+```
+
+(Silence means PASS for gate 1e.)
+
 ---
 
 ## Reporting format
@@ -375,6 +404,7 @@ Produce a summary table at the end:
 | 1b Tests pass | ❌ FAIL | `useWidget.test.tsx:45` — type mismatch in mock |
 | 1c Test coverage | ✅ PASS | — |
 | 1d No `: any` in tests | ✅ PASS | — |
+| 1e No cdf-design-system-alpha | ✅ PASS | — |
 | 2a SDK types | ⚠️ WARN | 2 `Record<string,unknown>` in `services/api.ts` |
 | ... | ... | ... |
 

@@ -11,6 +11,7 @@
         "The report runs gate 1b (pnpm test --run) and reports its result",
         "The report runs gate 1c (test file coverage) and reports which files lack tests",
         "The report runs gate 1d (: any in tests) and reports its result",
+        "The report runs gate 1e (cdf-design-system-alpha): zero tolerance — any occurrence in src/, package.json, or lockfiles is a blocking FAIL; the skill states there are no exceptions",
         "At least one Priority 2 gate is checked (SDK types, dead code, validation, useCallback)",
         "The report produces a summary table with PASS/FAIL/WARN per gate",
         "The report gives a clear final verdict: safe to open PR or must fix first",
